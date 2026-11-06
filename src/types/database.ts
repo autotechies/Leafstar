@@ -1565,6 +1565,8 @@ export type Database = {
       };
     };
     Functions: {
+      add_colour: { Args: { p: Json }; Returns: string };
+      add_size: { Args: { p_article_id: string; p_size: string }; Returns: number };
       add_stock_batch: { Args: { p: Json }; Returns: string };
       ai_allowed: { Args: Record<PropertyKey, never>; Returns: boolean };
       apply_bill: { Args: { p_bill_id: string }; Returns: undefined };
@@ -1610,6 +1612,7 @@ export type Database = {
       reset_stuck_scan_jobs: { Args: { p_max_attempts?: number; p_minutes?: number }; Returns: number };
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
+      set_colour_photos: { Args: { p_color_id: string; p_images: Json }; Returns: number };
       size_rank: { Args: { p_pos: number; p_size: string }; Returns: number };
       undo_batch: { Args: { p_archive_article?: string; p_batch_id: string }; Returns: number };
       undo_bill: { Args: { p_bill_id: string }; Returns: undefined };

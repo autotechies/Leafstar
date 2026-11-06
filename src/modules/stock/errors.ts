@@ -19,6 +19,11 @@ export function friendlyStockError(message: string | undefined): string {
     "Nothing to undo",
     "Stock entry not found",
     "Not allowed",
+    "Create the article first",
+    "Add at least one photo",
+    "Colour not found",
+    "Article not found",
+    "Choose a size",
   ];
   const hit = known.find((k) => m.includes(k));
   if (hit) return m.replace(/^.*?(?=[A-Z])/, "").split("\n")[0];

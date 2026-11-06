@@ -408,4 +408,50 @@ describe.skipIf(!databaseUrl())("database rules", () => {
       await refused(() => db.as("stranger", `select import_stock($1::jsonb)`, [JSON.stringify(importPayload("LS-SH-0902"))]));
     });
   });
+  describe("inventory helpers (007_inventory.sql)", () => {
+    const sku = async (s: string) => (await db.admin.query<{ stock: number }>(`select stock from variants where sku = $1`, [s])).rows[0]?.stock;
+    let aid: string;
+    const img = (n: string) => ({ thumb_url: `https://x/${n}/thumb.webp`, medium_url: `https://x/${n}/medium.webp`, url: `https://x/${n}/large.webp`, width: 1600, height: 2000 });
+
+    it("adds a colour to an existing article with a variant for every size and opening stock", async () => {
+      const made = await db.as("owner-aal2", `select create_article_full($1::jsonb) as id`, [JSON.stringify(article({ brand_id: brandId, code: "LS-SH-0950" }))]);
+      aid = made.rows[0].id;
+      const c = await db.as("owner-aal2", `select add_colour($1::jsonb) as id`, [JSON.stringify({ article_id: aid, name: "Olive", code: "olv", hex: "#5B6B35", images: [img("o1")], stock: { M: 25, S: 0 } })]);
+      expect(c.rows[0].id).toBeTruthy();
+      expect(await sku("LS-SH-0950-OLV-M")).toBe(25);
+      expect(await sku("LS-SH-0950-OLV-S")).toBe(0);
+      expect(await sku("LS-SH-0950-OLV-XL")).toBe(0);
+      expect((await db.admin.query(`select count(*)::int as n from article_images where color_id = $1`, [c.rows[0].id])).rows[0].n).toBe(1);
+    });
+
+    it("refuses a colour with a duplicate code, leaving nothing behind", async () => {
+      const before = (await db.admin.query(`select count(*)::int as n from article_colors where article_id = $1`, [aid])).rows[0].n;
+      await refused(() => db.as("owner-aal2", `select add_colour($1::jsonb)`, [JSON.stringify({ article_id: aid, name: "Olive 2", code: "OLV", hex: "#5B6B35", stock: { M: 5 } })]));
+      expect((await db.admin.query(`select count(*)::int as n from article_colors where article_id = $1`, [aid])).rows[0].n).toBe(before);
+    });
+
+    it("adds a size to every colour once", async () => {
+      expect((await db.as("owner-aal2", `select add_size($1, 'L') as n`, [aid])).rows[0].n).toBe(3);
+      expect(await sku("LS-SH-0950-NVY-L")).toBe(0);
+      await refused(() => db.as("owner-aal2", `select add_size($1, 'L')`, [aid]));
+    });
+
+    it("replaces a colour's photos and releases the old files for cleanup", async () => {
+      const color = (await db.admin.query<{ id: string }>(`select id from article_colors where article_id = $1 and code = 'OLV'`, [aid])).rows[0].id;
+      const oldFolder = "d".repeat(32);
+      await db.admin.query(`insert into image_uploads (folder, width, height, blur_data_url, attached_at) values ($1, 1600, 2000, 'data:image/webp;base64,AAAA', now())`, [oldFolder]);
+      await db.admin.query(`update article_images set url = $2 where color_id = $1`, [color, `https://x/${oldFolder}/large.webp`]);
+      const n = await db.as("owner-aal2", `select set_colour_photos($1, $2::jsonb) as n`, [color, JSON.stringify([img("n1"), img("n2")])]);
+      expect(n.rows[0].n).toBe(2);
+      const urls = (await db.admin.query<{ url: string }>(`select url from article_images where color_id = $1 order by sort_order`, [color])).rows.map((r) => r.url);
+      expect(urls).toEqual(["https://x/n1/large.webp", "https://x/n2/large.webp"]);
+      expect((await db.admin.query(`select attached_at from image_uploads where folder = $1`, [oldFolder])).rows[0].attached_at).toBeNull();
+      await refused(() => db.as("owner-aal2", `select set_colour_photos($1, '[]'::jsonb)`, [color]));
+    });
+
+    it("keeps these helpers away from anyone who is not signed-in staff", async () => {
+      await refused(() => db.as("anon", `select add_size($1, 'XL')`, [aid]));
+      await refused(() => db.as("stranger", `select add_colour('{}'::jsonb)`));
+    });
+  });
 });

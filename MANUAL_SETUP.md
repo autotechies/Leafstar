@@ -16,7 +16,8 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 3 | `supabase/004_step2.sql` | run |
 | 4 | `supabase/005_image_system.sql` | run (added in Step 3) |
 | 5 | `supabase/006_stock_entries.sql` | run (added in Step 4) |
-| 6 | `supabase/007_*.sql` and later: listed here as Claude adds them | |
+| 6 | `supabase/007_inventory.sql` | run (added in Step 5) |
+| 7 | `supabase/008_*.sql` and later: listed here as Claude adds them | |
 
 ## B. Supabase settings [now]
 - [ ] Authentication → sign-ups **OFF**; password minimum length **12**; leaked-password protection ON if your plan has it.

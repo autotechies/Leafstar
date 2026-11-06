@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -53,7 +53,10 @@ function SidebarBody({ inboxBadge, onNavigate }: { inboxBadge?: ReactNode; onNav
         <Logo kind="lockup" surface="chrome" />
         <span className="pl-1 type-caption text-chrome-fg">OWNER ADMIN</span>
       </Link>
-      <NavList inboxBadge={inboxBadge} onNavigate={onNavigate} />
+      {/* The active item depends on the address, which dynamic routes only know at request time. */}
+      <Suspense fallback={null}>
+        <NavList inboxBadge={inboxBadge} onNavigate={onNavigate} />
+      </Suspense>
     </nav>
   );
 }
