@@ -1,0 +1,82 @@
+[
+  {
+    "name": "Navy",
+    "code": "NVY",
+    "hex": "#1F2F54"
+  },
+  {
+    "name": "Black",
+    "code": "BLK",
+    "hex": "#1A1A1A"
+  },
+  {
+    "name": "White",
+    "code": "WHT",
+    "hex": "#F5F5F2"
+  },
+  {
+    "name": "Sky Blue",
+    "code": "SKY",
+    "hex": "#8FB3D9"
+  },
+  {
+    "name": "Royal Blue",
+    "code": "RYL",
+    "hex": "#2748A8"
+  },
+  {
+    "name": "Grey",
+    "code": "GRY",
+    "hex": "#8A8D91"
+  },
+  {
+    "name": "Charcoal",
+    "code": "CHR",
+    "hex": "#3A3F45"
+  },
+  {
+    "name": "Olive",
+    "code": "OLV",
+    "hex": "#5B6B35"
+  },
+  {
+    "name": "Green",
+    "code": "GRN",
+    "hex": "#2F7D4F"
+  },
+  {
+    "name": "Maroon",
+    "code": "MRN",
+    "hex": "#6E1F2D"
+  },
+  {
+    "name": "Red",
+    "code": "RED",
+    "hex": "#B3262E"
+  },
+  {
+    "name": "Beige",
+    "code": "BEG",
+    "hex": "#D8C7A3"
+  },
+  {
+    "name": "Khaki",
+    "code": "KHK",
+    "hex": "#A8985F"
+  },
+  {
+    "name": "Mustard",
+    "code": "MST",
+    "hex": "#C99A1B"
+  },
+  {
+    "name": "Brown",
+    "code": "BRN",
+    "hex": "#6B4A32"
+  },
+  {
+    "name": "Pink",
+    "code": "PNK",
+    "hex": "#E1A1B5"
+  }
+]

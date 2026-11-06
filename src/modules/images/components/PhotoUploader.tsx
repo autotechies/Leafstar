@@ -20,9 +20,9 @@ import { ImageViewer } from "./LazyImageViewer";
 export interface UploadedPhoto {
   key: string;
   status: "uploading" | "done" | "error";
-  /** Local preview while the server works. */
+  /** Local preview while the server works (empty for photos restored from a saved draft). */
   preview: string;
-  file: File;
+  file: File | null;
   error?: string;
   image?: ProcessedImage;
 }
@@ -70,11 +70,11 @@ export function PhotoUploader({ value, onChange, max = 12, label, disabled }: Pr
 
   const pump = useCallback(() => {
     while (running.current < PARALLEL) {
-      const next = valueRef.current.find((item) => item.status === "uploading" && !inFlight.current.has(item.key));
+      const next = valueRef.current.find((item) => item.status === "uploading" && item.file && !inFlight.current.has(item.key));
       if (!next) return;
       inFlight.current.add(next.key);
       running.current += 1;
-      uploadPhoto(next.file)
+      uploadPhoto(next.file as File)
         .then((image) => patch(next.key, { status: "done", image, error: undefined }))
         .catch((error: unknown) => patch(next.key, { status: "error", error: error instanceof UploadError ? error.message : "The upload failed. Please try again." }))
         .finally(() => {
@@ -92,7 +92,7 @@ export function PhotoUploader({ value, onChange, max = 12, label, disabled }: Pr
   // Free the local previews when the component goes away.
   useEffect(
     () => () => {
-      for (const item of valueRef.current) URL.revokeObjectURL(item.preview);
+      for (const item of valueRef.current) if (item.preview) URL.revokeObjectURL(item.preview);
     },
     [],
   );
@@ -110,7 +110,7 @@ export function PhotoUploader({ value, onChange, max = 12, label, disabled }: Pr
 
   function remove(key: string) {
     const item = value.find((i) => i.key === key);
-    if (item) URL.revokeObjectURL(item.preview);
+    if (item?.preview) URL.revokeObjectURL(item.preview);
     onChange((all) => all.filter((i) => i.key !== key));
   }
 
@@ -118,7 +118,7 @@ export function PhotoUploader({ value, onChange, max = 12, label, disabled }: Pr
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+      <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6">
         {value.map((item) => {
           const doneIndex = done.findIndex((p) => p.id === item.key);
           return (

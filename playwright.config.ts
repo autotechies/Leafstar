@@ -32,8 +32,10 @@ export default defineConfig({
     { name: "phone", testMatch: /.*-phone\.spec\.ts/, use: { ...phone } },
     // Login, Settings and two-step login change the one test account, so they run in order, alone.
     { name: "admin-flows", testMatch: /admin-flows\.spec\.ts/, fullyParallel: false, use: { ...browser } },
+    // Add Stock changes the shared database, so it runs after the flows and alone as well.
+    { name: "admin-stock", testMatch: /admin-stock\.spec\.ts/, fullyParallel: false, dependencies: ["admin-flows"], use: { ...browser } },
     // Screenshots of admin pages, after the flows have put the account back to normal.
-    { name: "admin-visual", testMatch: /admin-visual\.spec\.ts/, dependencies: ["admin-flows"], use: { ...browser } },
+    { name: "admin-visual", testMatch: /admin-visual\.spec\.ts/, dependencies: ["admin-flows", "admin-stock"], use: { ...browser } },
   ],
   webServer: process.env.PW_BASE_URL
     ? undefined

@@ -15,6 +15,7 @@ const adminPages = [
   { name: "admin-forgot-password", path: "admin/forgot-password", signedIn: false },
   { name: "admin-dashboard", path: "admin", signedIn: true },
   { name: "admin-settings", path: "admin/settings", signedIn: true },
+  { name: "admin-add-stock", path: "admin/stock/add", signedIn: true },
 ] as const;
 
 for (const p of adminPages) {

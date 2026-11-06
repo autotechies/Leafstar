@@ -336,4 +336,76 @@ describe.skipIf(!databaseUrl())("database rules", () => {
       await db.as("service_role", `select orphan_image_folders('1 day')`);
     });
   });
+  describe("stock entry helpers (006_stock_entries.sql)", () => {
+    const stockOf = async (sku: string) => (await db.admin.query<{ stock: number }>(`select stock from variants where sku = $1`, [sku])).rows[0]?.stock;
+
+    it("undoes a whole new-article entry at once and archives the article", async () => {
+      const payload = article({ brand_id: brandId, code: "LS-SH-0801" });
+      const made = await db.as("owner-aal2", `select create_article_full($1::jsonb) as id`, [JSON.stringify(payload)]);
+      const aid = made.rows[0].id;
+      const batch = (await db.admin.query<{ id: string }>(`select id from batches where code = 'B-LS-SH-0801'`)).rows[0].id;
+      expect(await stockOf("LS-SH-0801-NVY-S")).toBe(60);
+      const n = await db.as("owner-aal2", `select undo_batch($1, $2) as n`, [batch, aid]);
+      expect(n.rows[0].n).toBe(3); // three non-zero entries
+      expect(await stockOf("LS-SH-0801-NVY-S")).toBe(0);
+      expect((await db.admin.query(`select is_active, is_public from articles where id = $1`, [aid])).rows[0]).toEqual({ is_active: false, is_public: false });
+      // Once only.
+      await refused(() => db.as("owner-aal2", `select undo_batch($1, $2)`, [batch, aid]));
+    });
+
+    it("refuses to undo a batch when later sales would take stock below zero, and changes nothing", async () => {
+      const made = await db.as("owner-aal2", `select create_article_full($1::jsonb) as id`, [JSON.stringify(article({ brand_id: brandId, code: "LS-SH-0802" }))]);
+      expect(made.rowCount).toBe(1);
+      const batch = (await db.admin.query<{ id: string }>(`select id from batches where code = 'B-LS-SH-0802'`)).rows[0].id;
+      const v = (await db.admin.query<{ id: string }>(`select id from variants where sku = 'LS-SH-0802-NVY-S'`)).rows[0].id;
+      await db.as("owner-aal2", `insert into stock_movements (variant_id, qty_change, reason, note) values ($1, -50, 'adjustment', 'sold outside the system')`, [v]);
+      await refused(() => db.as("owner-aal2", `select undo_batch($1)`, [batch]));
+      expect(await stockOf("LS-SH-0802-NVY-S")).toBe(10);
+      expect(await stockOf("LS-SH-0802-SKY-M")).toBe(40);
+    });
+
+    it("hands out the next free article code per type", async () => {
+      const r = await db.as("owner-aal2", `select next_article_code('SH') as c, next_article_code('PN') as p`);
+      expect(r.rows[0].p).toBe("LS-PN-0001");
+      expect(r.rows[0].c).toMatch(/^LS-SH-\d{4}$/);
+      expect(Number(r.rows[0].c.slice(-4))).toBeGreaterThan(802);
+      await refused(() => db.as("owner-aal2", `select next_article_code('XX')`));
+      await refused(() => db.as("stranger", `select next_article_code('SH')`));
+    });
+
+    const importPayload = (code: string, overrides: Record<string, unknown> = {}) => ({
+      batch: { code: `IMP-${code}`, produced_on: "2026-11-01", notes: "Excel import" },
+      articles: [
+        {
+          code, name: "Imported Shirt", category: "upperwear", garment: "Shirt", brand_id: brandId, moq: 50,
+          colors: [{ name: "Navy", code: "NVY", hex: "#1C2B4A", stock: { S: 10, M: 20 } }, { name: "Sky", code: "SKY", hex: "#8FB3D9", stock: { M: 5 } }],
+          ...overrides,
+        },
+      ],
+    });
+
+    it("imports new and existing articles in one batch, as hidden drafts, and adds to existing stock", async () => {
+      await db.as("owner-aal2", `select import_stock($1::jsonb)`, [JSON.stringify(importPayload("LS-SH-0900"))]);
+      expect(await stockOf("LS-SH-0900-NVY-S")).toBe(10);
+      expect((await db.admin.query(`select is_public from articles where code = 'LS-SH-0900'`)).rows[0].is_public).toBe(false);
+      // Second import of the same article adds, never replaces.
+      await db.as("owner-aal2", `select import_stock($1::jsonb)`, [JSON.stringify(importPayload("LS-SH-0900"))].map((x) => x.replace("IMP-LS-SH-0900", "IMP-LS-SH-0900-B")));
+      expect(await stockOf("LS-SH-0900-NVY-S")).toBe(20);
+      expect(await stockOf("LS-SH-0900-SKY-M")).toBe(10);
+      expect((await db.admin.query(`select count(*)::int as n from article_colors where article_id = (select id from articles where code = 'LS-SH-0900')`)).rows[0].n).toBe(2);
+    });
+
+    it("leaves nothing behind when one imported row is wrong", async () => {
+      const before = (await db.admin.query(`select (select count(*) from articles)::int as a, (select count(*) from batches)::int as b, (select coalesce(sum(stock),0) from variants)::int as s`)).rows[0];
+      const bad = importPayload("LS-SH-0901", { colors: [{ name: "Navy", code: "NVY", hex: "#1C2B4A", stock: { S: 10 } }, { name: "Bad", code: "BAD", hex: "not-a-colour", stock: { S: 3 } }] });
+      await refused(() => db.as("owner-aal2", `select import_stock($1::jsonb)`, [JSON.stringify(bad)]));
+      const after = (await db.admin.query(`select (select count(*) from articles)::int as a, (select count(*) from batches)::int as b, (select coalesce(sum(stock),0) from variants)::int as s`)).rows[0];
+      expect(after).toEqual(before);
+    });
+
+    it("lets only signed-in staff import or undo", async () => {
+      await refused(() => db.as("anon", `select import_stock('{}'::jsonb)`));
+      await refused(() => db.as("stranger", `select import_stock($1::jsonb)`, [JSON.stringify(importPayload("LS-SH-0902"))]));
+    });
+  });
 });

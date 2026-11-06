@@ -15,6 +15,8 @@ const nextConfig: NextConfig = {
   cacheComponents: !isPreviewExport,
   partialPrefetching: !isPreviewExport,
   poweredByHeader: false,
+  // The Excel stock import sends a file (up to 5 MB) to a Server Action.
+  experimental: { serverActions: { bodySizeLimit: "6mb" } },
   env: {
     // Lets browser code build correct addresses for files in /public, and know it is the server-less preview.
     NEXT_PUBLIC_BASE_PATH: isPreviewExport ? (basePath ?? "") : "",

@@ -18,7 +18,7 @@ export default function ImageLabPage() {
     blur: string;
   }>;
   return (
-    <main className="mx-auto flex w-full max-w-page flex-col gap-8 px-4 py-12 sm:px-6">
+    <main className="mx-auto flex w-full max-w-page flex-col gap-8 px-4 py-12 md:px-6">
       <header className="flex flex-col gap-2">
         <h1 className="type-h1">Image lab</h1>
         <p className="type-body text-fg-muted">

@@ -82,14 +82,14 @@ export function LabClient({ samples }: { samples: Sample[] }) {
           <h2 className="type-h2">1 · Colour switching and the viewer</h2>
           <p className="type-small text-fg-muted">Tap a colour dot: the photo should change instantly with no blank flash. Tap the photo to open the viewer.</p>
         </div>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
             <button type="button" onClick={() => setViewer({ photos: patterns, index: colour })} className="block overflow-hidden rounded-md focus-ring" aria-label="Open photo larger">
               <SmartImage photo={patterns[colour]} sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw" priority />
             </button>
             <SwatchRow colours={samples.map((s) => ({ name: s.name, hex: s.hex }))} selectedIndex={colour} onSelect={setColour} />
           </div>
-          <div className="grid grid-cols-4 content-start gap-3 sm:col-span-1 lg:col-span-2">
+          <div className="grid grid-cols-4 content-start gap-3 md:col-span-1 lg:col-span-2">
             {patterns.map((p, i) => (
               <button key={p.id} type="button" onClick={() => setViewer({ photos: patterns, index: i })} className="block overflow-hidden rounded-md focus-ring" aria-label={`Open ${p.alt}`}>
                 <SmartImage photo={p} sizes="(min-width: 1024px) 15vw, 25vw" />
@@ -115,7 +115,7 @@ export function LabClient({ samples }: { samples: Sample[] }) {
         </div>
         {problem ? <Banner tone="warning">{problem}</Banner> : null}
         {mine.length ? (
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+          <div className="grid grid-cols-3 gap-3 md:grid-cols-4 lg:grid-cols-6">
             {mine.map((p, i) => (
               <button key={p.id} type="button" onClick={() => setViewer({ photos: mine, index: i })} className="block overflow-hidden rounded-md focus-ring" aria-label={`Open ${p.alt}`}>
                 <SmartImage photo={p} sizes="(min-width: 1024px) 15vw, 30vw" />

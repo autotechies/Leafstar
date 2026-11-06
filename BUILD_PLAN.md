@@ -66,7 +66,7 @@ Owner reviews the preview and `DESIGN.md`, asks for changes, approves. Transpare
 
 ## Step 6 — Public website
 **Ask first:** hero and About photos/videos; real trust numbers; your story and how a deal closes; should Home/About content be editable from the admin?
-**Claude builds:** navbar, footer, Home, About, Catalog, article page, enquiry list, Request Price, call sheet, Contact, Privacy, 404, and **migration 006** (a single database function that creates a lead + items + activity + inbox item together and handles repeat enquiries from the same phone). All writes go through rate-limited, origin-checked server routes.
+**Claude builds:** navbar, footer, Home, About, Catalog, article page, enquiry list, Request Price, call sheet, Contact, Privacy, 404, and **migration 007** (a single database function that creates a lead + items + activity + inbox item together and handles repeat enquiries from the same phone). All writes go through rate-limited, origin-checked server routes.
 **Your check:** go through the site as a buyer on your phone; colour dots switch photos instantly; out-of-stock articles/colours/sizes and hidden brands appear nowhere; no price anywhere (also in View Source); enquiry list with three articles sends one request; a second request from the same phone joins the open lead; Call sheet and callback form work; WhatsApp link opens a pre-filled chat; both themes on every page.
 
 ## Step 7 — Bulk bill scanning

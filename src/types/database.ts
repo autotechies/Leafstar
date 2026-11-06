@@ -1601,7 +1601,9 @@ export type Database = {
         Returns: number;
       };
       forget_image_folders: { Args: { folders: string[] }; Returns: number };
+      import_stock: { Args: { p: Json }; Returns: string };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      next_article_code: { Args: { p_type: string }; Returns: string };
       orphan_image_folders: { Args: { older_than?: string }; Returns: string[] };
       purge_rate_limits: { Args: Record<PropertyKey, never>; Returns: number };
       rate_limit_allow: { Args: { p_key: string; p_limit: number; p_window_seconds: number }; Returns: boolean };
@@ -1609,6 +1611,7 @@ export type Database = {
       show_limit: { Args: Record<PropertyKey, never>; Returns: number };
       show_trgm: { Args: { "": string }; Returns: string[] };
       size_rank: { Args: { p_pos: number; p_size: string }; Returns: number };
+      undo_batch: { Args: { p_archive_article?: string; p_batch_id: string }; Returns: number };
       undo_bill: { Args: { p_bill_id: string }; Returns: undefined };
       undo_movement: { Args: { p_movement_id: string; p_note?: string }; Returns: string };
     };

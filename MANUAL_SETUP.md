@@ -15,7 +15,8 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 2 | `supabase/003_hardening.sql` | confirm it was run |
 | 3 | `supabase/004_step2.sql` | run |
 | 4 | `supabase/005_image_system.sql` | run (added in Step 3) |
-| 5 | `supabase/006_*.sql` and later: listed here as Claude adds them | |
+| 5 | `supabase/006_stock_entries.sql` | run (added in Step 4) |
+| 6 | `supabase/007_*.sql` and later: listed here as Claude adds them | |
 
 ## B. Supabase settings [now]
 - [ ] Authentication → sign-ups **OFF**; password minimum length **12**; leaked-password protection ON if your plan has it.
@@ -67,7 +68,12 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 - [ ] Excel file of current stock (article, colour, size, pieces).
 - [ ] Many real sample bills in every format you use (photo, PDF, Word, Excel).
 
-## H. Decisions I need from you
+## H. Decisions I made for you (change any of them by telling me)
+- Lots: each article has a minimum order (default 50 pieces). A fixed lot size is optional per article; empty means any quantity at or above the minimum.
+- Types: Shirt and Pant. Sizes S, M, L, XL, XXL. 16 common colours are one tap in Add Stock; any other colour can be added.
+- Excel import columns: Article code, Article name, Type, Brand, Fabric, Pattern, Colour, Colour code, Colour hex, Size, Pieces (download the template from Add Stock).
+
+## H2. Decisions I still need from you
 - [ ] Lots: fixed pack (e.g. 50 per lot) or any quantity at or above the minimum?
 - [ ] Shirt types you make; colour names to preload.
 - [ ] Should Home/About text and photos be editable from the admin?
