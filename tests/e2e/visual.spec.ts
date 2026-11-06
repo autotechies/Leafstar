@@ -37,6 +37,15 @@ for (const p of pages) {
           window.scrollTo(0, 0);
         });
         await page.waitForLoadState("networkidle");
+        // Photos fade in when loaded; capture only once every one is in and the fade has finished.
+        await page.addStyleTag({ content: "img { transition: none !important; }" });
+        await page.evaluate(() => document.querySelectorAll("img").forEach((img) => (img.loading = "eager")));
+        await page.waitForFunction(() => [...document.images].every((img) => img.complete && img.naturalWidth > 0));
+        // Photos decode off-screen; make sure they are painted before the picture is taken.
+        await page.evaluate(() => Promise.all([...document.images].map((img) => img.decode().catch(() => undefined))));
+        await page.waitForTimeout(400);
+        // The first full-page capture makes Chrome paint every tile; the second is the one we keep.
+        await page.screenshot({ animations: "disabled", fullPage: true });
         await page.screenshot({ path: `screenshots/${p.name}-${theme}-${w.name}.png`, fullPage: true, animations: "disabled" });
 
         const results = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze();

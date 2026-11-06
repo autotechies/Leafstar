@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
   cacheComponents: !isPreviewExport,
   partialPrefetching: !isPreviewExport,
   poweredByHeader: false,
+  env: {
+    // Lets browser code build correct addresses for files in /public, and know it is the server-less preview.
+    NEXT_PUBLIC_BASE_PATH: isPreviewExport ? (basePath ?? "") : "",
+    NEXT_PUBLIC_IS_PREVIEW: isPreviewExport ? "1" : "",
+  },
   turbopack: {
     // Only set by the preview build, which runs in a sub-folder of the project.
     ...(process.env.LS_TURBOPACK_ROOT ? { root: process.env.LS_TURBOPACK_ROOT } : {}),

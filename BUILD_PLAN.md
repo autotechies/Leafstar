@@ -52,7 +52,7 @@ Owner reviews the preview and `DESIGN.md`, asks for changes, approves. Transpare
 **Your check:** login and Settings need a server, so they are NOT on the GitHub Pages preview; review Claude's screenshots and test report now, and try them for real at Step 13. In the report: `/admin` while logged out redirects to login; wrong password refused, 10 wrong tries block for 15 minutes; reset link sets a new password; Settings saves are checked and never overwrite a change made elsewhere; brands hide/show; FAQ answers; AI limit and pause; two-step login on and off.
 
 ## Step 3 — Image system and viewer
-**Claude builds:** direct-to-storage upload with signed URLs, server processing (HEIC conversion, rotation, thumb/medium/large WebP, blur placeholder, EXIF stripped), `ProcessedImage`, the shared `ImageViewer` (library chosen and justified), and `/dev/image-lab`.
+**Built (migration `005_image_system.sql`, run it in both projects):** direct-to-storage upload with signed URLs, server processing (HEIC conversion, rotation, thumb/medium/large WebP, blur placeholder, EXIF stripped), `ProcessedImage`, the shared `ImageViewer` (library chosen and justified), and `/dev/image-lab`.
 **Your check (on your own phone):** open `/dev/image-lab`; upload a large phone photo and an iPhone photo if you have one; images blur then sharpen without jumping; pinch, double-tap, drag, swipe; back gesture closes the viewer and the page behind doesn't move; swatches switch photos instantly. Tell Claude what feels slow. Repeat on a cheaper Android phone if you can.
 
 ## Step 4 — Add Stock and Excel import
@@ -66,7 +66,7 @@ Owner reviews the preview and `DESIGN.md`, asks for changes, approves. Transpare
 
 ## Step 6 — Public website
 **Ask first:** hero and About photos/videos; real trust numbers; your story and how a deal closes; should Home/About content be editable from the admin?
-**Claude builds:** navbar, footer, Home, About, Catalog, article page, enquiry list, Request Price, call sheet, Contact, Privacy, 404, and **migration 005** (a single database function that creates a lead + items + activity + inbox item together and handles repeat enquiries from the same phone). All writes go through rate-limited, origin-checked server routes.
+**Claude builds:** navbar, footer, Home, About, Catalog, article page, enquiry list, Request Price, call sheet, Contact, Privacy, 404, and **migration 006** (a single database function that creates a lead + items + activity + inbox item together and handles repeat enquiries from the same phone). All writes go through rate-limited, origin-checked server routes.
 **Your check:** go through the site as a buyer on your phone; colour dots switch photos instantly; out-of-stock articles/colours/sizes and hidden brands appear nowhere; no price anywhere (also in View Source); enquiry list with three articles sends one request; a second request from the same phone joins the open lead; Call sheet and callback form work; WhatsApp link opens a pre-filled chat; both themes on every page.
 
 ## Step 7 — Bulk bill scanning

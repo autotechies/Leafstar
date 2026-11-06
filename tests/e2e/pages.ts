@@ -3,6 +3,7 @@ export const pages = [
   // Relative paths (no leading slash) so the same tests run against the GitHub Pages preview sub-folder.
   { name: "home", path: "" },
   { name: "styleguide", path: "dev/styleguide" },
+  { name: "image-lab", path: "dev/image-lab" },
 ] as const;
 
 /** DESIGN.md §10: four widths, both themes. */

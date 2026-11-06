@@ -292,4 +292,48 @@ describe.skipIf(!databaseUrl())("database rules", () => {
       }
     });
   });
+  describe("photo records (005_image_system.sql)", () => {
+    const folder = "a".repeat(32);
+    const insertRecord = (f: string) =>
+      db.admin.query(`insert into image_uploads (folder, width, height, blur_data_url) values ($1, 1600, 2000, 'data:image/webp;base64,AAAA')`, [f]);
+
+    it("keeps photo records away from the public and from signed-in strangers", async () => {
+      await insertRecord(folder);
+      expect((await db.as("anon", `select count(*)::int as n from image_uploads`).catch(() => ({ rows: [{ n: -1 }] }))).rows[0].n).toBe(-1);
+      expect((await db.as("stranger", `select count(*)::int as n from image_uploads`)).rows[0].n).toBe(0);
+      expect((await db.as("owner", `select count(*)::int as n from image_uploads`)).rows[0].n).toBeGreaterThanOrEqual(1);
+      await db.admin.query(`delete from image_uploads where folder = $1`, [folder]);
+    });
+
+    it("marks a photo as used when an article uses it, and only then protects it from cleanup", async () => {
+      const used = "b".repeat(32);
+      const unused = "c".repeat(32);
+      await insertRecord(used);
+      await insertRecord(unused);
+      await db.admin.query(`update image_uploads set created_at = now() - interval '3 days'`);
+
+      const payload = article({ brand_id: brandId, code: "LS-SH-0777" });
+      payload.colors = [
+        { name: "Red", code: "red", hex: "#BB3333", images: [{ thumb_url: `https://x/${used}/thumb.webp`, medium_url: `https://x/${used}/medium.webp`, url: `https://x/${used}/large.webp` }], stock: { M: 5 } },
+      ];
+      const created = await db.as("owner-aal2", `select create_article_full($1::jsonb)`, [JSON.stringify(payload)]);
+      expect(created.rowCount).toBe(1);
+
+      const state = await db.admin.query<{ folder: string; used: boolean }>(`select folder, attached_at is not null as used from image_uploads where folder in ($1, $2)`, [used, unused]);
+      expect(Object.fromEntries(state.rows.map((r) => [r.folder, r.used]))).toEqual({ [used]: true, [unused]: false });
+
+      const orphans = await db.admin.query<{ orphan_image_folders: string }>(`select orphan_image_folders('1 day')`);
+      expect(orphans.rows.map((r) => r.orphan_image_folders)).toEqual([unused]);
+      const forgotten = await db.admin.query<{ n: number }>(`select forget_image_folders(array[$1, $2]) as n`, [used, unused]);
+      expect(forgotten.rows[0].n).toBe(1); // the used one is never forgotten
+    });
+
+    it("lets only the server run the cleanup helpers", async () => {
+      for (const who of ["anon", "stranger", "owner"] as const) {
+        await refused(() => db.as(who, `select orphan_image_folders('1 day')`));
+        await refused(() => db.as(who, `select forget_image_folders(array['x'])`));
+      }
+      await db.as("service_role", `select orphan_image_folders('1 day')`);
+    });
+  });
 });

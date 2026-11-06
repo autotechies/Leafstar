@@ -1117,6 +1117,40 @@ export type Database = {
         };
         Relationships: [];
       };
+      image_uploads: {
+        Row: {
+          attached_at: string | null;
+          blur_data_url: string;
+          created_at: string;
+          folder: string;
+          height: number;
+          id: string;
+          uploaded_by: string | null;
+          width: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          attached_at?: string | null;
+          blur_data_url: string;
+          created_at?: string;
+          folder: string;
+          height: number;
+          id?: string;
+          uploaded_by?: string | null;
+          width: number;
+        };
+        Update: {
+          attached_at?: string | null;
+          blur_data_url?: string;
+          created_at?: string;
+          folder?: string;
+          height?: number;
+          id?: string;
+          uploaded_by?: string | null;
+          width?: number;
+        };
+        Relationships: [];
+      };
       rate_limits: {
         Row: {
           hits: number;
@@ -1566,7 +1600,9 @@ export type Database = {
         Args: { p_ids: string[]; p_note?: string; p_via?: Database["public"]["Enums"]["inbox_via"] };
         Returns: number;
       };
+      forget_image_folders: { Args: { folders: string[] }; Returns: number };
       is_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      orphan_image_folders: { Args: { older_than?: string }; Returns: string[] };
       purge_rate_limits: { Args: Record<PropertyKey, never>; Returns: number };
       rate_limit_allow: { Args: { p_key: string; p_limit: number; p_window_seconds: number }; Returns: boolean };
       reset_stuck_scan_jobs: { Args: { p_max_attempts?: number; p_minutes?: number }; Returns: number };

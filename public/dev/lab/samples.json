@@ -1,0 +1,34 @@
+[
+  {
+    "n": 1,
+    "name": "Navy",
+    "hex": "#16294a",
+    "width": 1600,
+    "height": 2000,
+    "blur": "data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAACwAwCdASoQABQAPu1iqU2ppaQiMAgBMB2JQBYdhDwyewy8FWPzgAD+6NlQ7wMNg13fz7QfGVNyK2CqL+gAAA=="
+  },
+  {
+    "n": 2,
+    "name": "Olive",
+    "hex": "#3c4a22",
+    "width": 1600,
+    "height": 2000,
+    "blur": "data:image/webp;base64,UklGRkgAAABXRUJQVlA4IDwAAACwAwCdASoQABQAPu1iqU2ppaOiMAgBMB2JQBhQA3aOz7HVVv+XgAD+ud2rGFbIjtxhNJJB9BLOIgKUAAA="
+  },
+  {
+    "n": 3,
+    "name": "Maroon",
+    "hex": "#4a1620",
+    "width": 1600,
+    "height": 2000,
+    "blur": "data:image/webp;base64,UklGRkoAAABXRUJQVlA4ID4AAACwAwCdASoQABQAPu1iqU2ppaOiMAgBMB2JYgC7ACHhT+QBPk6OwAD+6Nlc1PjxjgXO20VAfnPdrkRpzfAAAA=="
+  },
+  {
+    "n": 4,
+    "name": "Charcoal",
+    "hex": "#22262b",
+    "width": 1600,
+    "height": 2000,
+    "blur": "data:image/webp;base64,UklGRkYAAABXRUJQVlA4IDoAAACQAwCdASoQABQAPu1kqU2ppaQiMAgBMB2JZwDA3B6VJNQqL+sAAP7o8Nw+DWp0FzsdL1uufqnlwAAA"
+  }
+]
