@@ -484,4 +484,68 @@ describe.skipIf(!databaseUrl())("database rules", () => {
       await refused(() => make("owner-aal2", lead({ phone: "919800000003" })));
     });
   });
+  describe("bill scanning (009_bill_scanning.sql)", () => {
+    let aid: string;
+    const sku = async (s: string) => (await db.admin.query<{ stock: number }>(`select stock from variants where sku = $1`, [s])).rows[0]?.stock;
+    const newJob = async (hash: string) =>
+      (await db.admin.query<{ id: string }>(`insert into bill_scan_jobs (batch_ref, file_path, file_name, mime_type, file_hash) values (gen_random_uuid(), 'x/' || $1, 'bill.csv', 'text/csv', $1) returning id`, [hash])).rows[0].id;
+    const finish = (job: string, p: unknown) => db.as<{ id: string }>("service_role", `select finish_scan_job($1, $2::jsonb) as id`, [job, JSON.stringify(p)]);
+
+    it("matches lines by code, by learned alias and by name, and leaves unknown lines unmatched", async () => {
+      aid = (await db.as("owner-aal2", `select create_article_full($1::jsonb) as id`, [JSON.stringify(article({ brand_id: brandId, code: "LS-SH-0970", name: "Oxford Check Shirt" }))])).rows[0].id;
+      const job = await newJob("h1");
+      const bill = await finish(job, {
+        bill_number: "B-1", bill_date: "2026-11-01", buyer_name: "Sharma Textiles",
+        lines: [
+          { raw_text: "LS-SH-0970-NVY-S 10 pcs", name: "x", colour: "", size: "S", qty: 10, unit: "pieces" },
+          { raw_text: "Oxford check shirt navy M", name: "Oxford Check Shirt", colour: "Navy", size: "M", qty: 5, unit: "pieces" },
+          { raw_text: "Purple Hoodie", name: "Purple Hoodie", colour: "Purple", size: "L", qty: 3, unit: "pieces" },
+        ],
+      });
+      const items = (await db.admin.query<{ extracted_name: string; method: string | null; qty: number }>(`select extracted_name, match_method as method, qty from bill_items where bill_id = $1 order by created_at`, [bill.rows[0].id])).rows;
+      expect(items.map((i) => i.method)).toEqual(["sku", "fuzzy", null]);
+      expect((await db.admin.query(`select status, bill_id from bill_scan_jobs where id = $1`, [job])).rows[0].status).toBe("extracted");
+    });
+
+    it("applies a reviewed draft in one call: stock drops, the correction is learned, the buyer becomes a contact", async () => {
+      const draft = (await db.admin.query<{ id: string }>(`select bill_id as id from bill_scan_jobs where file_hash = 'h1'`)).rows[0].id;
+      const variant = (await db.admin.query<{ id: string }>(`select id from variants where sku = 'LS-SH-0970-NVY-S'`)).rows[0].id;
+      const before = await sku("LS-SH-0970-NVY-S");
+      const res = await db.as("owner-aal2", `select save_bill_draft($1, $2::jsonb, true) as r`, [draft, JSON.stringify({
+        bill_number: "B-1", bill_date: "2026-11-01", buyer_name: "Sharma Textiles",
+        items: [{ variant_id: variant, name: "Navi Shirt", colour: "Blue", size: "S", qty: 10, learn: true, method: "manual", confidence: 1 }],
+      })]);
+      expect(res.rows[0].r.applied).toBe(true);
+      expect(await sku("LS-SH-0970-NVY-S")).toBe(before - 10);
+      expect((await db.admin.query(`select 1 from item_aliases where alias_norm = 'navi shirt blue s'`)).rows).toHaveLength(1);
+      const b = (await db.admin.query<{ status: string; contact_id: string | null }>(`select status, contact_id from bills where id = $1`, [draft])).rows[0];
+      expect(b.status).toBe("applied");
+      expect(b.contact_id).toBeTruthy();
+      // The learned wording now matches by itself.
+      const m = await db.as<{ method: string }>("service_role", `select method from match_bill_line('', 'Navi Shirt', 'Blue', 'S')`);
+      expect(m.rows[0].method).toBe("alias");
+    });
+
+    it("refuses to oversell, a second apply, a bill with no lines, and the same bill number twice", async () => {
+      const over = await finish(await newJob("h2"), { bill_number: "B-2", bill_date: "2026-11-02", lines: [{ raw_text: "LS-SH-0970-NVY-S", name: "", colour: "", size: "S", qty: 5000 }] });
+      await refused(() => db.as("owner-aal2", `select apply_bill($1)`, [over.rows[0].id]));
+      const empty = await finish(await newJob("h3"), { bill_number: "B-3", lines: [] });
+      await refused(() => db.as("owner-aal2", `select apply_bill($1)`, [empty.rows[0].id]));
+      const applied = (await db.admin.query<{ id: string }>(`select id from bills where status = 'applied' and bill_number = 'B-1'`)).rows[0].id;
+      await refused(() => db.as("owner-aal2", `select save_bill_draft($1, '{"items":[]}'::jsonb, true)`, [applied]));
+      const dup = await finish(await newJob("h4"), { bill_number: "b-1", bill_date: "2026-11-01", lines: [{ raw_text: "LS-SH-0970-NVY-M", name: "", colour: "", size: "M", qty: 1 }] });
+      const variant = (await db.admin.query<{ id: string }>(`select id from variants where sku = 'LS-SH-0970-NVY-M'`)).rows[0].id;
+      await refused(() => db.as("owner-aal2", `select save_bill_draft($1, $2::jsonb, true)`, [dup.rows[0].id, JSON.stringify({ bill_number: "b-1", bill_date: "2026-11-01", items: [{ variant_id: variant, qty: 1 }] })]));
+    });
+
+    it("undoes an applied bill once and keeps the helpers away from the public", async () => {
+      const applied = (await db.admin.query<{ id: string }>(`select id from bills where status = 'applied' and bill_number = 'B-1'`)).rows[0].id;
+      await db.as("owner-aal2", `select undo_bill($1)`, [applied]);
+      expect(await sku("LS-SH-0970-NVY-S")).toBe(60);
+      await refused(() => db.as("owner-aal2", `select undo_bill($1)`, [applied]));
+      await refused(() => db.as("anon", `select match_bill_line('', 'x', 'y', 'S')`));
+      await refused(() => db.as("owner-aal2", `select finish_scan_job(gen_random_uuid(), '{}'::jsonb)`));
+      await refused(() => db.as("stranger", `select save_bill_draft(gen_random_uuid(), '{}'::jsonb)`));
+    });
+  });
 });

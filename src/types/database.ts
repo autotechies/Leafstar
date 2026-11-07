@@ -1572,6 +1572,10 @@ export type Database = {
       apply_bill: { Args: { p_bill_id: string }; Returns: undefined };
       bootstrap_owner: { Args: { p_email: string; p_name?: string }; Returns: string };
       create_lead: { Args: { p: Json }; Returns: Json };
+      finish_scan_job: { Args: { p_job: string; p: Json }; Returns: string };
+      match_bill_line: { Args: { p_raw: string; p_name: string; p_colour: string; p_size: string }; Returns: Array<{ variant_id: string; method: string; confidence: number }> };
+      norm_alias: { Args: { p: string }; Returns: string };
+      save_bill_draft: { Args: { p_bill: string; p: Json; p_apply?: boolean }; Returns: Json };
       claim_scan_job: {
         Args: Record<PropertyKey, never>;
         Returns: {

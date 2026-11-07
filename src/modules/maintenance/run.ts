@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
+import { processNextJob } from "@/modules/bills/process";
 import { IMAGE_BUCKET, STAGING_BUCKET } from "@/modules/images/constants";
 
 /*
@@ -50,12 +51,27 @@ async function purgeRateLimits(admin: Admin): Promise<string> {
   return `${data ?? 0} old counter(s) removed`;
 }
 
+/** A job that was claimed and then lost (crash, timeout) goes back in the queue; queued bills left behind are read now. */
+async function finishScans(admin: Admin): Promise<string> {
+  const { data: reset, error } = await admin.rpc("reset_stuck_scan_jobs");
+  if (error) throw error;
+  let done = 0;
+  // A handful per run keeps this inside the function's time limit; the next run continues.
+  for (let i = 0; i < 3; i++) {
+    const outcome = await processNextJob(admin);
+    if (!outcome) break;
+    done += 1;
+  }
+  return `${reset ?? 0} stuck job(s) reset, ${done} queued bill(s) read`;
+}
+
 export async function runMaintenance(admin: Admin): Promise<MaintenanceReport> {
   const tasks: MaintenanceReport["tasks"] = {};
   const jobs: Array<[string, () => Promise<string>]> = [
     ["unused-photos", () => removeOrphanPhotos(admin)],
     ["unfinished-uploads", () => clearStaging(admin)],
     ["rate-limit-counters", () => purgeRateLimits(admin)],
+    ["bill-scans", () => finishScans(admin)],
   ];
   for (const [name, job] of jobs) {
     try {

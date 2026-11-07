@@ -18,6 +18,7 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 5 | `supabase/006_stock_entries.sql` | run (added in Step 4) |
 | 6 | `supabase/007_inventory.sql` | run (added in Step 5) |
 | 7 | `supabase/008_public_leads.sql` | run (added in Step 6) |
+| 8 | `supabase/009_bill_scanning.sql` | run (added in Step 7) |
 | 8 | `supabase/009_*.sql` and later: listed here as Claude adds them | |
 
 ## B. Supabase settings [now]
@@ -94,3 +95,12 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 
 ## J. Go-live [go-live] (Step 13)
 See "Go-live checklist" in `BUILD_PLAN.md`.
+
+## I. Bill scanning (Step 7)
+
+- Run `009_bill_scanning.sql` in both Supabase projects.
+- Set `GEMINI_API_KEY` and `GEMINI_MODEL`, and make sure AI is not paused in Admin → Settings.
+- Create the private `bills` Storage bucket if it is not already there (see section on Storage buckets).
+- Try 5–10 of your real bills (photo, PDF, Word, Excel) at Admin → Bills → Scan. Wrongly matched lines you correct are learned for next time.
+- Old `.doc` and `.xls` files are refused with instructions: re-save them as `.docx` or `.xlsx`.
+- Upload and reading could not be tested against real Storage or real Gemini in the build sandbox; please test with real bills.
