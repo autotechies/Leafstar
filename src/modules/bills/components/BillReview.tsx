@@ -158,6 +158,11 @@ export function BillReview({ bill, options, nextDraftId }: { bill: BillDraft; op
                 const total = i.variantId ? demand.get(i.variantId) ?? 0 : 0;
                 const after = opt ? opt.stock - total : 0;
                 const sure = i.variantId && (i.confidence ?? 0) >= CONFIDENT;
+                // A line that names one of our articles but no single colour and size (for example "Sizes S-XXL, assorted colours").
+                const nameCode = `${i.rawText} ${i.name}`.toUpperCase().match(/LS-[A-Z]{2}-\d{4}/)?.[0] ?? null;
+                const articleOptions = nameCode ? options.filter((o) => o.articleCode.toUpperCase() === nameCode) : [];
+                const splitLine = !readOnly && !i.size && articleOptions.length > 0 && (!i.variantId || articleOptions.some((o) => o.id === i.variantId));
+                const choices = splitLine ? articleOptions : options;
                 return (
                   <li key={i.key} className={cx("flex flex-col gap-3 rounded-lg border p-3", !i.variantId ? "border-danger" : sure ? "border-border" : "border-warning")}>
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -171,14 +176,26 @@ export function BillReview({ bill, options, nextDraftId }: { bill: BillDraft; op
                           placeholder="Choose an article, colour and size"
                           disabled={readOnly}
                           value={i.variantId ?? ""}
-                          options={options.map((o) => ({ value: o.id, label: o.label }))}
-                          onChange={(e) => set(i.key, { variantId: e.target.value || null, method: e.target.value ? "manual" : null, confidence: e.target.value ? 1 : null, learn: Boolean(e.target.value) && Boolean(i.name || i.rawText) })}
+                          options={choices.map((o) => ({ value: o.id, label: o.label }))}
+                          onChange={(e) => set(i.key, { variantId: e.target.value || null, method: e.target.value ? "manual" : null, confidence: e.target.value ? 1 : null, learn: !splitLine && Boolean(e.target.value) && Boolean(i.name || i.rawText) })}
                         />
                       </div>
                       <div className="md:col-span-3">
                         <TextInput label="Pieces" inputMode="numeric" disabled={readOnly} value={String(i.qty)} onChange={(e) => set(i.key, { qty: Number(e.target.value.replace(/\D/g, "")) || 0 })} />
                       </div>
                     </div>
+                    {splitLine ? (
+                      <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-3">
+                        <p className="type-small">
+                          This line is for article <strong>{nameCode}</strong> but does not name one colour and size, so the bill cannot say which pieces to deduct. Choose a colour and size for part of the pieces, then use <strong>Split</strong> for the rest. The list below shows only this article.
+                        </p>
+                        <div>
+                          <Button size="sm" variant="secondary" icon={<Plus aria-hidden="true" className="size-icon-sm" />} onClick={() => setItems((cur) => { const at = cur.findIndex((x) => x.key === i.key); const copy: DraftItem = { ...i, key: crypto.randomUUID(), variantId: null, qty: 0, method: null, confidence: null, learn: false }; return [...cur.slice(0, at + 1), copy, ...cur.slice(at + 1)]; })}>
+                            Split: add another line for this article
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       {opt ? (
                         <p className={cx("type-small tabular", after < 0 ? "font-semibold text-danger" : "text-fg-muted")}>
