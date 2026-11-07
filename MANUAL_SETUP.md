@@ -19,6 +19,7 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 6 | `supabase/007_inventory.sql` | run (added in Step 5) |
 | 7 | `supabase/008_public_leads.sql` | run (added in Step 6) |
 | 8 | `supabase/009_bill_scanning.sql` | run (added in Step 7) |
+| 9 | `supabase/010_crm.sql` | run (added in Step 10) |
 | 8 | `supabase/009_*.sql` and later: listed here as Claude adds them | |
 
 ## B. Supabase settings [now]
@@ -121,3 +122,10 @@ See "Go-live checklist" in `BUILD_PLAN.md`.
 - Phone app: open the admin site on your phone, then **Add to Home Screen** (iPhone: Safari → Share → Add to Home Screen; Android: Chrome menu → Install app). Open it from the home screen, go to **Inbox**, and tap **Turn on alerts here**. iPhone alerts only work from the home-screen app (iOS 16.4 or newer).
 - The home-screen icon is made from your small logo mark, so it looks soft. Send a larger square logo (at least 512 × 512) and replace `public/icons/icon-192.png` and `icon-512.png`.
 - Alerts and the live Inbox could not be tested on a real phone or against real Resend in the build sandbox; please test once with a real enquiry.
+
+## L. CRM (Step 10)
+
+- Run `010_crm.sql` in both Supabase projects.
+- Leads from the website appear in **New**. Drag a card (computer) or use its Stage menu (phone). **Lost** asks for a reason; **Won** creates the buyer (or links the existing one) in **CRM → Buyers**.
+- "Value" in the Buyers list shows only when your bills carry a total amount; "Pieces bought" always works.
+- Please check the stage wording (New, Contacted, Quoted, Negotiation, Won, Lost) suits how you work.

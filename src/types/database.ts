@@ -1603,6 +1603,11 @@ export type Database = {
         };
       };
       create_article_full: { Args: { p: Json }; Returns: string };
+      create_manual_lead: { Args: { p: Json }; Returns: Json };
+      move_lead: {
+        Args: { p_expected?: string; p_lead: string; p_reason?: string; p_stage: Database["public"]["Enums"]["lead_stage"] };
+        Returns: Json;
+      };
       handle_inbox_items: {
         Args: { p_ids: string[]; p_note?: string; p_via?: Database["public"]["Enums"]["inbox_via"] };
         Returns: number;

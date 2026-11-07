@@ -548,4 +548,48 @@ describe.skipIf(!databaseUrl())("database rules", () => {
       await refused(() => db.as("stranger", `select save_bill_draft(gen_random_uuid(), '{}'::jsonb)`));
     });
   });
+  describe("CRM (010_crm.sql)", () => {
+    it("moves a lead through stages with a timeline entry, and Lost needs a reason", async () => {
+      const made = await db.as<{ r: { lead_id: string; existing: boolean } }>("owner-aal2", `select create_manual_lead('{"name":"Walk-in Buyer","phone":"919700000001","message":"Met at the market"}'::jsonb) as r`);
+      expect(made.rows[0].r.existing).toBe(false);
+      const id = made.rows[0].r.lead_id;
+      await db.as("owner-aal2", `select move_lead($1, 'contacted')`, [id]);
+      await refused(() => db.as("owner-aal2", `select move_lead($1, 'lost')`, [id]));
+      await refused(() => db.as("owner-aal2", `select move_lead($1, 'lost', '   ')`, [id]));
+      const acts = (await db.admin.query<{ kind: string; body: string }>(`select kind, body from lead_activities where lead_id = $1 order by created_at`, [id])).rows;
+      expect(acts.map((a) => a.kind)).toEqual(["note", "stage_change"]);
+      expect(acts[1].body).toBe("new to contacted");
+    });
+
+    it("a second manual lead for the same phone returns the open one instead of duplicating", async () => {
+      const again = await db.as<{ r: { existing: boolean } }>("owner-aal2", `select create_manual_lead('{"name":"Walk-in Buyer","phone":"919700000001"}'::jsonb) as r`);
+      expect(again.rows[0].r.existing).toBe(true);
+      expect((await db.admin.query(`select 1 from leads where phone = '919700000001'`)).rows).toHaveLength(1);
+    });
+
+    it("Won creates the buyer once and links it; Lost stores the reason; re-opening cannot duplicate an open lead", async () => {
+      const id = (await db.admin.query<{ id: string }>(`select id from leads where phone = '919700000001'`)).rows[0].id;
+      await db.as("owner-aal2", `select move_lead($1, 'won')`, [id]);
+      const lead = (await db.admin.query<{ contact_id: string }>(`select contact_id from leads where id = $1`, [id])).rows[0];
+      const buyer = (await db.admin.query<{ roles: string[]; name: string }>(`select roles, name from contacts where id = $1`, [lead.contact_id])).rows[0];
+      expect(buyer.roles).toContain("buyer");
+      expect(buyer.name).toBe("Walk-in Buyer");
+      // A new enquiry from the same phone starts a fresh open lead linked to the same buyer.
+      const fresh = (await db.as<{ r: { lead_id: string } }>("owner-aal2", `select create_manual_lead('{"name":"Walk-in Buyer","phone":"919700000001"}'::jsonb) as r`)).rows[0].r.lead_id;
+      expect((await db.admin.query<{ contact_id: string }>(`select contact_id from leads where id = $1`, [fresh])).rows[0].contact_id).toBe(lead.contact_id);
+      await refused(() => db.as("owner-aal2", `select move_lead($1, 'new')`, [id]));
+      await db.as("owner-aal2", `select move_lead($1, 'lost', 'Went elsewhere')`, [fresh]);
+      expect((await db.admin.query<{ lost_reason: string }>(`select lost_reason from leads where id = $1`, [fresh])).rows[0].lost_reason).toBe("Went elsewhere");
+      expect((await db.admin.query(`select 1 from contacts where phone = '919700000001'`)).rows).toHaveLength(1);
+    });
+
+    it("refuses a stale change and anyone who is not staff", async () => {
+      const id = (await db.as<{ r: { lead_id: string } }>("owner-aal2", `select create_manual_lead('{"name":"Stale Test","phone":"919700000002"}'::jsonb) as r`)).rows[0].r.lead_id;
+      await refused(() => db.as("owner-aal2", `select move_lead($1, 'quoted', null, '2001-01-01T00:00:00Z')`, [id]));
+      await refused(() => db.as("stranger", `select move_lead($1, 'quoted')`, [id]));
+      await refused(() => db.as("anon", `select create_manual_lead('{"name":"X","phone":"919700000003"}'::jsonb)`));
+      await refused(() => db.as("owner-aal2", `select create_manual_lead('{"name":"","phone":"919700000004"}'::jsonb)`));
+      await refused(() => db.as("owner-aal2", `select create_manual_lead('{"name":"Bad Phone","phone":"123"}'::jsonb)`));
+    });
+  });
 });
