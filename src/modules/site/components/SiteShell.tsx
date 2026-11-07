@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { ChatWidget } from "@/modules/chat/components/ChatWidget";
 import { loadSettings } from "../data";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
@@ -24,6 +25,11 @@ async function Closing() {
   );
 }
 
+async function Chat() {
+  const settings = await loadSettings();
+  return <ChatWidget whatsapp={settings?.whatsapp ?? null} />;
+}
+
 export function SiteShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col bg-bg text-fg">
@@ -34,6 +40,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
       <main id="main" className="flex-1">{children}</main>
       <Suspense fallback={<TrustBand settings={null} />}>
         <Closing />
+      </Suspense>
+      <Suspense fallback={null}>
+        <Chat />
       </Suspense>
     </div>
   );

@@ -104,3 +104,11 @@ See "Go-live checklist" in `BUILD_PLAN.md`.
 - Try 5–10 of your real bills (photo, PDF, Word, Excel) at Admin → Bills → Scan. Wrongly matched lines you correct are learned for next time.
 - Old `.doc` and `.xls` files are refused with instructions: re-save them as `.docx` or `.xlsx`.
 - Upload and reading could not be tested against real Storage or real Gemini in the build sandbox; please test with real bills.
+
+## J. Website assistant (Step 8)
+
+- No new migration: it uses the chat tables from earlier steps. Needs `GEMINI_API_KEY` and `GEMINI_MODEL` (same as bill scanning).
+- Admin → Chats → **Your answers**: add your real answers (payment terms, delivery, returns, samples, custom sizes). The assistant only answers from your articles and these answers, and never gives prices or exact stock. Anything it cannot answer appears under **Could not answer**; write the answer once and it learns.
+- Run the 50-question check with your real key: `RUN_CHAT_EVAL=1 GEMINI_API_KEY=… GEMINI_MODEL=… npx vitest run tests/unit/chat-eval.test.ts` (prints a pass/fail table). It could not be run in the build sandbox because it needs your key.
+- Visitors: memory is off unless they tick "Remember my details", and "Forget me" deletes everything stored about them. Mention this in your Privacy page (the draft already covers it generally; please have it reviewed).
+- If the AI is paused, out of budget or down, the widget says so honestly and points to WhatsApp / call; the question is still logged.
