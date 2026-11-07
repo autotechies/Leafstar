@@ -17,7 +17,8 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 4 | `supabase/005_image_system.sql` | run (added in Step 3) |
 | 5 | `supabase/006_stock_entries.sql` | run (added in Step 4) |
 | 6 | `supabase/007_inventory.sql` | run (added in Step 5) |
-| 7 | `supabase/008_*.sql` and later: listed here as Claude adds them | |
+| 7 | `supabase/008_public_leads.sql` | run (added in Step 6) |
+| 8 | `supabase/009_*.sql` and later: listed here as Claude adds them | |
 
 ## B. Supabase settings [now]
 - [ ] Authentication → sign-ups **OFF**; password minimum length **12**; leaked-password protection ON if your plan has it.
@@ -73,6 +74,13 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 - Lots: each article has a minimum order (default 50 pieces). A fixed lot size is optional per article; empty means any quantity at or above the minimum.
 - Types: Shirt and Pant. Sizes S, M, L, XL, XXL. 16 common colours are one tap in Add Stock; any other colour can be added.
 - Excel import columns: Article code, Article name, Type, Brand, Fabric, Pattern, Colour, Colour code, Colour hex, Size, Pieces (download the template from Add Stock).
+
+## H1. Public website: placeholders and draft wording (Step 6)
+- Every photo on Home and About is a labelled grey placeholder ("Photo to be added"). Send real photos and I will swap them in (or tell me to add an admin screen for editing them).
+- All wording on Home, About and the "trust" section above the footer is in ONE file: `src/modules/site/content.ts`. It is drafted only from facts you told me (own factory, wholesale lots, GST registered, credit for regular buyers, shirts and pants). Please read it and change anything that is not true for you. There are no numbers, awards or certificates on purpose.
+- The Home trust bar shows four facts, not numbers. Give me real numbers (years, pieces made, buyers served) when you are ready.
+- Business phone, WhatsApp, email, address and Instagram come from Admin → Settings. Until you fill them in, the site simply hides those links.
+- The Privacy page is a plain-language draft. Please have it checked against your own practice (and a lawyer if you wish).
 
 ## H2. Decisions I still need from you
 - [ ] Lots: fixed pack (e.g. 50 per lot) or any quantity at or above the minimum?

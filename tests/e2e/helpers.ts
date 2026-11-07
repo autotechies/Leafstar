@@ -74,3 +74,39 @@ export async function signOut(page: Page) {
 export async function expectToast(page: Page, text: string | RegExp) {
   await expect(page.getByRole("status").filter({ hasText: text }).first()).toBeVisible();
 }
+
+export const PUBLIC_ARTICLE_CODE = "LS-SH-9100";
+
+/** One live article (two colours, photos, stock) and contact details, so public pages can be tested with real rows. */
+export async function seedPublicArticle() {
+  const CODE = PUBLIC_ARTICLE_CODE;
+  await sql(`insert into brands (name, is_public) select 'Leaf Star', true where not exists (select 1 from brands where lower(name) = 'leaf star')`);
+  await sql(`update brands set is_public = true where lower(name) = 'leaf star'`);
+  await sql(`update business_settings set phone = '919876543210', whatsapp = '919876543210', business_name = 'Leaf Star'`);
+  if ((await sql(`select 1 from articles where code = $1`, [CODE])).length === 0) {
+    // Seeded directly (the signed-in-staff function is covered by its own tests); same rows it would write.
+    await sql(`
+      do $$
+      declare b uuid; a uuid; navy uuid; sky uuid; bt uuid; v uuid;
+      begin
+        select id into b from brands where lower(name) = 'leaf star';
+        insert into articles (code, name, category, garment, fabric, pattern, moq, brand_id, is_public)
+          values ('${CODE}', 'Public Check Shirt', 'upperwear', 'Shirt', 'Cotton', 'Check', 50, b, false) returning id into a;
+        insert into article_colors (article_id, name, code, hex, sort_order) values (a, 'Navy', 'NVY', '#1C2B4A', 0) returning id into navy;
+        insert into article_colors (article_id, name, code, hex, sort_order) values (a, 'Sky Blue', 'SKY', '#8FB3D9', 1) returning id into sky;
+        insert into article_images (article_id, color_id, thumb_url, medium_url, url, width, height, sort_order) values
+          (a, navy, '/dev/lab/pattern-1-thumb.webp', '/dev/lab/pattern-1-medium.webp', '/dev/lab/pattern-1-large.webp', 1600, 2000, 0),
+          (a, navy, '/dev/lab/pattern-2-thumb.webp', '/dev/lab/pattern-2-medium.webp', '/dev/lab/pattern-2-large.webp', 1600, 2000, 1),
+          (a, sky,  '/dev/lab/pattern-3-thumb.webp', '/dev/lab/pattern-3-medium.webp', '/dev/lab/pattern-3-large.webp', 1600, 2000, 0);
+        insert into batches (code, produced_on) values ('B-PUBLIC-9100', current_date) returning id into bt;
+        insert into variants (article_id, color_id, size, size_order, sku) values (a, navy, 'M', 2, '${CODE}-NVY-M') returning id into v;
+        insert into stock_movements (variant_id, qty_change, reason, batch_id) values (v, 40, 'production', bt);
+        insert into variants (article_id, color_id, size, size_order, sku) values (a, navy, 'L', 3, '${CODE}-NVY-L') returning id into v;
+        insert into stock_movements (variant_id, qty_change, reason, batch_id) values (v, 30, 'production', bt);
+        insert into variants (article_id, color_id, size, size_order, sku) values (a, sky, 'M', 2, '${CODE}-SKY-M') returning id into v;
+        insert into stock_movements (variant_id, qty_change, reason, batch_id) values (v, 20, 'production', bt);
+        update articles set is_public = true where id = a;
+      end $$;
+    `);
+  }
+}

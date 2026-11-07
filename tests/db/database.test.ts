@@ -454,4 +454,34 @@ describe.skipIf(!databaseUrl())("database rules", () => {
       await refused(() => db.as("stranger", `select add_colour('{}'::jsonb)`));
     });
   });
+  describe("website enquiries (008_public_leads.sql)", () => {
+    const lead = (o: Record<string, unknown> = {}) => JSON.stringify({ name: "Ravi", phone: "919800000001", source: "request_price", message: "Need 100 pcs", ...o });
+    const make = (who: "service_role" | "anon" | "owner-aal2", payload: string) => db.as<{ r: { lead_id: string; is_new: boolean } }>(who, `select create_lead($1::jsonb) as r`, [payload]);
+
+    it("creates a lead, a timeline entry, the articles asked about and an inbox item in one call", async () => {
+      const made = await db.as("owner-aal2", `select create_article_full($1::jsonb) as id`, [JSON.stringify(article({ brand_id: brandId, code: "LS-SH-0960" }))]);
+      const aid = made.rows[0].id;
+      const res = await make("service_role", lead({ items: [{ article_id: aid, quantity: 120 }, { article_id: "00000000-0000-0000-0000-000000000000", quantity: 5 }] }));
+      expect(res.rows[0].r.is_new).toBe(true);
+      const id = res.rows[0].r.lead_id;
+      expect((await db.admin.query(`select count(*)::int as n from lead_items where lead_id = $1`, [id])).rows[0].n).toBe(1);
+      expect((await db.admin.query(`select count(*)::int as n from lead_activities where lead_id = $1`, [id])).rows[0].n).toBe(1);
+      const inbox = (await db.admin.query<{ kind: string; status: string }>(`select kind, status from inbox_items where lead_id = $1`, [id])).rows;
+      expect(inbox).toEqual([{ kind: "request_price", status: "unanswered" }]);
+    });
+
+    it("adds a repeat enquiry from the same phone to the one open lead", async () => {
+      const again = await make("service_role", lead({ message: "One more question" }));
+      expect(again.rows[0].r.is_new).toBe(false);
+      expect((await db.admin.query(`select count(*)::int as n from leads where phone = '919800000001'`)).rows[0].n).toBe(1);
+      expect((await db.admin.query(`select count(*)::int as n from inbox_items where phone = '919800000001'`)).rows[0].n).toBe(2);
+    });
+
+    it("rejects a bad phone or an empty name, and keeps the function away from the public", async () => {
+      await refused(() => make("service_role", lead({ phone: "123" })));
+      await refused(() => make("service_role", lead({ name: "  ", phone: "919800000002" })));
+      await refused(() => make("anon", lead({ phone: "919800000003" })));
+      await refused(() => make("owner-aal2", lead({ phone: "919800000003" })));
+    });
+  });
 });

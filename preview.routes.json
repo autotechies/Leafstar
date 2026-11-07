@@ -2,6 +2,8 @@
   "$comment": "Pages published to the GitHub Pages preview. Only pages that need no server belong here (no login, no saving, no secrets). Add a page in the step that builds it.",
   "routes": [
     "",
+    "about",
+    "privacy",
     "dev/styleguide",
     "dev/image-lab"
   ]

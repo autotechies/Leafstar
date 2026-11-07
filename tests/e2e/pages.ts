@@ -4,6 +4,11 @@ export const pages = [
   { name: "home", path: "" },
   { name: "styleguide", path: "dev/styleguide" },
   { name: "image-lab", path: "dev/image-lab" },
+  { name: "about", path: "about" },
+  { name: "catalog", path: "catalog" },
+  { name: "enquiry", path: "enquiry" },
+  { name: "contact", path: "contact" },
+  { name: "privacy", path: "privacy" },
 ] as const;
 
 /** DESIGN.md §10: four widths, both themes. */

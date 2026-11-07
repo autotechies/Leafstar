@@ -1571,6 +1571,7 @@ export type Database = {
       ai_allowed: { Args: Record<PropertyKey, never>; Returns: boolean };
       apply_bill: { Args: { p_bill_id: string }; Returns: undefined };
       bootstrap_owner: { Args: { p_email: string; p_name?: string }; Returns: string };
+      create_lead: { Args: { p: Json }; Returns: Json };
       claim_scan_job: {
         Args: Record<PropertyKey, never>;
         Returns: {

@@ -1,6 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
-import { pages, themes, widths } from "./pages";
+import { hasStack, PUBLIC_ARTICLE_CODE, seedPublicArticle } from "./helpers";
+import { pages as basePages, themes, widths } from "./pages";
+
+// With a database behind the site, the catalog and article pages are photographed with a real article on them.
+const pages = hasStack ? [...basePages, { name: "article", path: `catalog/${PUBLIC_ARTICLE_CODE}` }] : basePages;
+
+test.beforeAll(async () => {
+  if (hasStack) await seedPublicArticle();
+});
 
 /*
   For every page × width × theme:
