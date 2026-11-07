@@ -35,10 +35,29 @@ const reply = await timed("tiny text question", async () => {
 if (reply) console.log(`Answer: ${String(reply).trim().slice(0, 80)}`);
 
 if (!reply) {
-  await timed("list models", async () => {
-    const names = [];
+  // Try every text Flash model on the key, 15 seconds each, and say which ones answer.
+  const names = [];
+  try {
     const pager = await ai.models.list({ config: { pageSize: 100 } });
-    for await (const m of pager) if (/flash/i.test(m.name ?? "")) names.push((m.name ?? "").replace("models/", ""));
-    console.log("Flash models your key can use:\n  " + names.join("\n  "));
-  });
+    for await (const m of pager) {
+      const n = (m.name ?? "").replace("models/", "");
+      if (/flash/i.test(n) && !/image|omni|tts|live|audio/i.test(n) && n !== model) names.push(n);
+    }
+  } catch (e) {
+    console.log("Could not list models:", String(e?.message ?? e).slice(0, 200));
+  }
+  console.log(`\nTrying ${names.length} other models (15 seconds each)...`);
+  const good = [];
+  for (const n of names) {
+    const t = Date.now();
+    try {
+      const r = await ai.models.generateContent({ model: n, contents: "Reply with the single word: ready", config: { abortSignal: ctl(15000) } });
+      const secs = ((Date.now() - t) / 1000).toFixed(1);
+      console.log(`OK   ${n} (${secs}s) answer: ${String(r.text).trim().slice(0, 20)}`);
+      good.push(n);
+    } catch (e) {
+      console.log(`FAIL ${n}: ${String(e?.message ?? e).replace(/\s+/g, " ").slice(0, 140)}`);
+    }
+  }
+  console.log(good.length ? `\nPut one of these in .env.local:  GEMINI_MODEL=${good[0]}\nWorking: ${good.join(", ")}` : "\nNone answered. Check the key / billing in Google AI Studio.");
 }
