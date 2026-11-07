@@ -13,7 +13,8 @@
     "test:e2e": "node scripts/e2e.mjs",
     "build:preview": "node scripts/build-preview.mjs",
     "db:types": "supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" --schema public > src/types/database.ts",
-    "verify": "npm run lint && npm run typecheck && npm run check:design && npm test && npm run build"
+    "verify": "npm run lint && npm run typecheck && npm run check:design && npm test && npm run build",
+    "ai:check": "node --env-file=.env.local scripts/ai-check.mjs"
   },
   "dependencies": {
     "@google/genai": "3.0.0",
