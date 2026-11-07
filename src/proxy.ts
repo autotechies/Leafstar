@@ -16,8 +16,14 @@ const OPEN_ADMIN_PAGES = /^\/admin\/(login|forgot-password)(\/|$)/;
 /** Tells the pages which address was asked for, so a login redirect can bring the person back to it. */
 export const PATH_HEADER = "x-ls-path";
 
+/** Design and photo test pages are for building the site; the live site never serves them unless explicitly allowed. */
+const devPagesClosed = () => process.env.NODE_ENV === "production" && process.env.ALLOW_DEV_PAGES !== "1";
+
 export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname;
+  if (path === "/dev" || path.startsWith("/dev/")) {
+    return devPagesClosed() ? NextResponse.rewrite(new URL("/not-found-closed", request.url), { status: 404 }) : NextResponse.next();
+  }
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set(PATH_HEADER, path + request.nextUrl.search);
   const forward = () => NextResponse.next({ request: { headers: requestHeaders } });
@@ -54,5 +60,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*"],
+  matcher: ["/admin/:path*", "/dev/:path*"],
 };

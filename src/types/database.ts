@@ -556,6 +556,7 @@ export type Database = {
           content: string;
           created_at: string;
           id: string;
+          image_path: string | null;
           role: string;
           session_id: string;
           visitor_id: string;
@@ -565,6 +566,7 @@ export type Database = {
           content: string;
           created_at?: string;
           id?: string;
+          image_path?: string | null;
           role: string;
           session_id: string;
           visitor_id: string;
@@ -573,6 +575,7 @@ export type Database = {
           content?: string;
           created_at?: string;
           id?: string;
+          image_path?: string | null;
           role?: string;
           session_id?: string;
           visitor_id?: string;

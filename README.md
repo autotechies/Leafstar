@@ -6,7 +6,9 @@ a public website for buyers and an owner admin for stock, bills, enquiries and C
 - **Rules:** [`AGENTS.md`](AGENTS.md) (data, security, behaviour, process)
 - **Design:** [`DESIGN.md`](DESIGN.md) (colours, type, spacing, components, every screen)
 - **Plan:** [`BUILD_PLAN.md`](BUILD_PLAN.md) (steps 0–14, each with the owner's checklist)
-- **Database:** [`supabase/schema.sql`](supabase/schema.sql) then [`supabase/003_hardening.sql`](supabase/003_hardening.sql), then [`supabase/004_step2.sql`](supabase/004_step2.sql), run once each in the Supabase SQL Editor
+- **Database:** `supabase/schema.sql`, then every numbered file in `supabase/` in order (003 … 011), run once each in the Supabase SQL Editor. The exact list and status is in [`MANUAL_SETUP.md`](MANUAL_SETUP.md)
+- **Going live:** [`DEPLOY.md`](DEPLOY.md)
+- **Security review:** [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md)
 
 ## Run it on a computer
 

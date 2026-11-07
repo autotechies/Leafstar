@@ -41,6 +41,8 @@ const appEnv = {
   ...process.env,
   NEXT_TELEMETRY_DISABLED: "1",
   NEXT_PUBLIC_SITE_URL: site,
+  // The test pages (/dev/*) are closed on a production server unless allowed; the tests use them.
+  ALLOW_DEV_PAGES: "1",
   ...(stack
     ? {
         NEXT_PUBLIC_SUPABASE_URL: LOCAL_SUPABASE.url,

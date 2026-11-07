@@ -20,7 +20,8 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 7 | `supabase/008_public_leads.sql` | run (added in Step 6) |
 | 8 | `supabase/009_bill_scanning.sql` | run (added in Step 7) |
 | 9 | `supabase/010_crm.sql` | run (added in Step 10) |
-| 8 | `supabase/009_*.sql` and later: listed here as Claude adds them | |
+| 10 | `supabase/011_security.sql` | run (added in Step 12; closes a real hole, do not skip) |
+| 11 | `supabase/012_chat_images.sql` | run (added in Step 14; creates the private `chat-images` bucket) |
 
 ## B. Supabase settings [now]
 - [ ] Authentication → sign-ups **OFF**; password minimum length **12**; leaked-password protection ON if your plan has it.
@@ -129,3 +130,10 @@ See "Go-live checklist" in `BUILD_PLAN.md`.
 - Leads from the website appear in **New**. Drag a card (computer) or use its Stage menu (phone). **Lost** asks for a reason; **Won** creates the buyer (or links the existing one) in **CRM → Buyers**.
 - "Value" in the Buyers list shows only when your bills carry a total amount; "Pieces bought" always works.
 - Please check the stage wording (New, Contacted, Quoted, Negotiation, Won, Lost) suits how you work.
+
+## M. Photo search in the chat (Step 14)
+
+- Run `012_chat_images.sql` in both Supabase projects (creates the private `chat-images` bucket).
+- Visitors can attach one photo (JPG/PNG/WEBP, up to 5 MB). It is shrunk in their browser and again on the server, saved as a plain JPEG (location/camera details removed), and the assistant suggests up to 3 *similar* articles from your catalogue, never "exact".
+- Photos are kept **30 days** in a private bucket (a daily job deletes them); "Forget me" deletes them at once. Add one sentence about this to your Privacy page and have it reviewed.
+- Needs a real Gemini key; photo matching quality could not be tested in the build sandbox. Try it with a few shirt/pant photos.

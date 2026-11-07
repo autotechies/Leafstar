@@ -27,24 +27,32 @@ for (const name of readdirSync(root)) {
 }
 symlinkSync(join(root, "node_modules"), join(work, "node_modules"), "dir");
 
-// Keep only allowed route folders. A folder is a route if it holds page.tsx or route.ts.
+// Keep only allowed routes. A folder is a route if it holds page.tsx or route.ts. Folders in (parentheses) are route
+// groups: they are not part of the address, so "(site)/about" is the route "about".
 const appDir = join(work, "src", "app");
+const isGroup = (name) => /^\(.+\)$/.test(name);
+const routeOf = (dir) => relative(appDir, dir).split(sep).filter((part) => part && !isGroup(part)).join("/");
 function prune(dir) {
   for (const name of readdirSync(dir)) {
     const full = join(dir, name);
-    if (!statSync(full).isDirectory()) continue;
-    const route = relative(appDir, full).split(sep).join("/");
-    const keepsSomething = [...allowed].some((r) => r === route || r.startsWith(`${route}/`));
-    if (!keepsSomething) {
-      rmSync(full, { recursive: true, force: true });
-      continue;
+    if (statSync(full).isDirectory()) {
+      if (!isGroup(name)) {
+        const route = routeOf(full);
+        const keepsSomething = [...allowed].some((r) => r === route || r.startsWith(`${route}/`));
+        if (!keepsSomething) {
+          rmSync(full, { recursive: true, force: true });
+          continue;
+        }
+      }
+      prune(full);
+    } else if (/^(page|route)\.tsx?$/.test(name) && !allowed.has(routeOf(dir))) {
+      rmSync(full, { force: true });
     }
-    prune(full);
   }
 }
 prune(appDir);
-for (const f of ["route.ts", "route.tsx"]) rmSync(join(appDir, f), { force: true });
-if (!allowed.has("")) rmSync(join(appDir, "page.tsx"), { force: true });
+// Files that read the database or describe the live site cannot be exported statically.
+for (const f of ["sitemap.ts", "robots.ts", "manifest.ts"]) rmSync(join(appDir, f), { force: true });
 for (const f of ["proxy.ts", join("src", "proxy.ts"), "middleware.ts", join("src", "middleware.ts")]) rmSync(join(work, f), { force: true });
 
 const env = { ...process.env, LS_PREVIEW_EXPORT: "1", LS_TURBOPACK_ROOT: root, NEXT_TELEMETRY_DISABLED: "1" };

@@ -1,3 +1,5 @@
+import { Suspense } from "react";
+import { CurrentYear } from "./CurrentYear";
 import Link from "next/link";
 import { AtSign, Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
@@ -43,7 +45,7 @@ export function SiteFooter({ settings }: { settings: PublicSettings | null }) {
       </Container>
       <div className="border-t border-chrome-line">
         <Container className="py-4">
-          <p className="type-caption">© {new Date().getFullYear()} {settings?.businessName ?? "Leaf Star"}. All rights reserved.</p>
+          <p className="type-caption">© <Suspense fallback={null}><CurrentYear /></Suspense> {settings?.businessName ?? "Leaf Star"}. All rights reserved.</p>
         </Container>
       </div>
     </footer>

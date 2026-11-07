@@ -17,6 +17,13 @@ const adminPages = [
   { name: "admin-settings", path: "admin/settings", signedIn: true },
   { name: "admin-add-stock", path: "admin/stock/add", signedIn: true },
   { name: "admin-inventory", path: "admin/inventory", signedIn: true },
+  { name: "admin-inbox", path: "admin/inbox", signedIn: true },
+  { name: "admin-crm", path: "admin/crm", signedIn: true },
+  { name: "admin-buyers", path: "admin/crm/buyers", signedIn: true },
+  { name: "admin-chats", path: "admin/chats", signedIn: true },
+  { name: "admin-bills", path: "admin/bills", signedIn: true },
+  { name: "admin-scan-bills", path: "admin/bills/scan", signedIn: true },
+  { name: "admin-search", path: "admin/search?q=ls", signedIn: true },
 ] as const;
 
 for (const p of adminPages) {

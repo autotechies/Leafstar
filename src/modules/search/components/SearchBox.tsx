@@ -17,7 +17,7 @@ export function SearchBox() {
   return (
     <>
       <form role="search" onSubmit={submit} className="hidden w-full md:block md:max-w-modal">
-        <TextInput label="Search SKU, article, buyer or bill" hideLabel type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search SKU, article, buyer, bill" prefix="" />
+        <TextInput label="Search everything" hideLabel type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search SKU, article, buyer, bill" prefix="" />
       </form>
       <Link href="/admin/search" aria-label="Search" className="inline-flex size-control items-center justify-center rounded-md text-fg transition-colors duration-150 hover:bg-surface-2 focus-ring md:hidden">
         <Search aria-hidden="true" className="size-icon" />

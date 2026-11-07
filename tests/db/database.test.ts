@@ -592,4 +592,43 @@ describe.skipIf(!databaseUrl())("database rules", () => {
       await refused(() => db.as("owner-aal2", `select create_manual_lead('{"name":"Bad Phone","phone":"123"}'::jsonb)`));
     });
   });
+  describe("security baseline (Step 12)", () => {
+    it("every table in the public schema has Row Level Security switched on", async () => {
+      const open = (await db.admin.query<{ tablename: string }>(`select tablename from pg_tables where schemaname = 'public' and not rowsecurity`)).rows.map((r) => r.tablename);
+      expect(open, "tables without RLS").toEqual([]);
+    });
+
+    it("the public website (anon) can read nothing but the two public views", async () => {
+      const grants = (await db.admin.query<{ table_name: string; privilege_type: string }>(
+        `select table_name, privilege_type from information_schema.role_table_grants where grantee = 'anon' and table_schema = 'public'`,
+      )).rows;
+      const allowed = new Set(["public_catalog", "public_settings"]);
+      expect(grants.filter((g) => !allowed.has(g.table_name)), "anon grants outside the two views").toEqual([]);
+      expect(grants.filter((g) => g.privilege_type !== "SELECT"), "anon may only read").toEqual([]);
+    });
+
+    it("nobody can write through the public views (a view runs with its owner's rights, which skips Row Level Security)", async () => {
+      const writes = (await db.admin.query<{ grantee: string; table_name: string; privilege_type: string }>(
+        `select grantee, table_name, privilege_type from information_schema.role_table_grants
+          where table_schema = 'public' and table_name in ('public_catalog', 'public_settings')
+            and grantee in ('anon', 'authenticated', 'PUBLIC') and privilege_type <> 'SELECT'`,
+      )).rows;
+      expect(writes).toEqual([]);
+      await refused(() => db.as("anon", `update public_settings set business_name = 'hacked'`));
+      await refused(() => db.as("owner-aal2", `update public_settings set business_name = 'hacked'`));
+    });
+
+    it("no function of ours can be run by anon except the ones the website needs", async () => {
+      // Functions that belong to extensions (pg_trgm) are excluded; trigger functions cannot be called through the API at all.
+      const fns = (await db.admin.query<{ proname: string }>(
+        `select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+          where n.nspname = 'public' and p.prorettype <> 'trigger'::regtype
+            and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+            and has_function_privilege('anon', p.oid, 'execute')
+          order by 1`,
+      )).rows.map((r) => r.proname);
+      // Three harmless helpers stay open: is_admin() answers false for anyone not signed in; norm_alias() and size_rank() only reshape text.
+      expect(fns.filter((n) => !["is_admin", "norm_alias", "size_rank"].includes(n)), "functions anon can run").toEqual([]);
+    });
+  });
 });

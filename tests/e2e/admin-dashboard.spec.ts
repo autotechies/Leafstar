@@ -52,7 +52,7 @@ test("searching a full variant SKU shows its stock, movements, bills and leads",
   await sql(`delete from leads where phone = '919866600001'`);
   await sql(`select create_lead(jsonb_build_object('name','Sku Searcher','phone','919866600001','source','request_price','items', jsonb_build_array(jsonb_build_object('article_id', '${v.article_id}', 'quantity', 120))))`);
   await page.goto("admin", { waitUntil: "networkidle" });
-  await page.getByRole("searchbox", { name: /Search SKU/ }).fill(v.sku);
+  await page.getByRole("searchbox", { name: "Search everything" }).fill(v.sku);
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/admin\/search\?q=/);
   await expect(page.getByRole("heading", { name: v.sku })).toBeVisible();
@@ -68,7 +68,7 @@ test("search finds buyers by phone and says plainly when nothing matches", async
   await page.goto("admin/search?q=zzzznothing", { waitUntil: "networkidle" });
   await expect(page.getByText(/Nothing found for/)).toBeVisible();
   await page.goto("admin/search?q=a", { waitUntil: "networkidle" });
-  await expect(page.getByText("Search everything")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Search everything" })).toBeVisible();
 });
 
 test("on a phone the search icon opens the search page", async ({ page }) => {

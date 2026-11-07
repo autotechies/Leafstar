@@ -45,6 +45,20 @@ async function clearStaging(admin: Admin): Promise<string> {
   return removed ? `${removed} unfinished upload(s) removed` : "none";
 }
 
+/** Photos visitors attached to a chat are kept 30 days, then removed from storage (the words of the chat stay). */
+async function purgeChatPhotos(admin: Admin): Promise<string> {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin.from("chat_messages").select("id, image_path").not("image_path", "is", null).lt("created_at", cutoff).limit(500);
+  if (error) throw error;
+  const rows = data ?? [];
+  if (!rows.length) return "none";
+  const removed = await admin.storage.from("chat-images").remove(rows.map((r) => r.image_path as string));
+  if (removed.error) throw removed.error;
+  const { error: clearError } = await admin.from("chat_messages").update({ image_path: null }).in("id", rows.map((r) => r.id));
+  if (clearError) throw clearError;
+  return `${rows.length} chat photo(s) removed`;
+}
+
 async function purgeRateLimits(admin: Admin): Promise<string> {
   const { data, error } = await admin.rpc("purge_rate_limits");
   if (error) throw error;
@@ -72,6 +86,7 @@ export async function runMaintenance(admin: Admin): Promise<MaintenanceReport> {
     ["unfinished-uploads", () => clearStaging(admin)],
     ["rate-limit-counters", () => purgeRateLimits(admin)],
     ["bill-scans", () => finishScans(admin)],
+    ["chat-photos", () => purgeChatPhotos(admin)],
   ];
   for (const [name, job] of jobs) {
     try {
