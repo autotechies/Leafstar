@@ -1,0 +1,20 @@
+import { spawn } from "node:child_process";
+import { startLocalSupabase, LOCAL_SUPABASE } from "/home/claude/leafstar/scripts/local-supabase.mjs";
+const stack = await startLocalSupabase({ siteUrl: "http://127.0.0.1:3200" });
+const env = { ...process.env, NEXT_TELEMETRY_DISABLED:"1", NEXT_PUBLIC_SITE_URL:"http://127.0.0.1:3200", NEXT_PUBLIC_SUPABASE_URL: LOCAL_SUPABASE.url, NEXT_PUBLIC_SUPABASE_ANON_KEY: LOCAL_SUPABASE.anonKey, SUPABASE_SERVICE_ROLE_KEY: LOCAL_SUPABASE.serviceKey };
+const s = spawn("node_modules/.bin/next", ["dev","-p","3200","-H","127.0.0.1"], { cwd:"/home/claude/leafstar", env });
+let log=""; s.stdout.on("data",d=>log+=d); s.stderr.on("data",d=>log+=d);
+await new Promise(r=>setTimeout(r,8000));
+import { chromium } from "playwright";
+const b = await chromium.launch({executablePath:"/opt/pw-browsers/chromium-1194/chrome-linux/chrome"}); const pg = await b.newPage();
+await pg.goto("http://127.0.0.1:3200/admin/login");
+await pg.getByLabel("Email").fill("owner@leafstar.test");
+await pg.getByRole("textbox",{name:"Password",exact:true}).fill("Local-owner-pass-123");
+await pg.getByRole("button",{name:"Sign in"}).click();
+await pg.waitForTimeout(15000);
+console.log("after login", pg.url());
+for (const p of ["/admin","/admin/bills/scan"]) { await pg.goto("http://127.0.0.1:3200"+p); await pg.waitForTimeout(8000); console.log(p, pg.url()); }
+await b.close();
+await new Promise(r=>setTimeout(r,3000));
+console.log(log.slice(-3500));
+s.kill(); await stack.stop?.(); process.exit(0);
