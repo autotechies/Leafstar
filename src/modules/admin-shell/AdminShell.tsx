@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
+import { SearchBox } from "@/modules/search/components/SearchBox";
 import { Logo } from "@/components/brand/Logo";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { useNativeDialog } from "@/components/ui/Modal";
@@ -112,7 +113,7 @@ export function AdminShell({ children, userMenu, inboxBadge }: { children: React
           <Link href="/admin" aria-label="Dashboard" className="rounded-md focus-ring lg:hidden">
             <Logo kind="mark" surface="auto" />
           </Link>
-          <div className="flex-1" />
+          <div className="flex flex-1 justify-end md:justify-start"><SearchBox /></div>
           <ThemeToggle />
           {userMenu}
         </header>

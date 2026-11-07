@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
 import { Tabs, TabPanel } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
+import { cx } from "@/lib/cx";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { formatPhone } from "@/lib/formats";
 import { whatsappLink } from "@/modules/site/links";
@@ -26,6 +27,12 @@ import { AlertsToggle } from "./AlertsToggle";
 */
 
 const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+function waited(iso: string): { text: string; late: boolean } {
+  const hours = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 3_600_000));
+  if (hours < 1) return { text: "waiting less than an hour", late: false };
+  if (hours < 24) return { text: `waiting ${hours} h`, late: false };
+  return { text: `waiting ${Math.floor(hours / 24)} d ${hours % 24} h`, late: true };
+}
 type Via = "call" | "whatsapp" | "sms" | "other";
 const viaLabel: Record<string, string> = { call: "Called", whatsapp: "WhatsApp", sms: "SMS", other: "Other" };
 
@@ -95,7 +102,9 @@ export function InboxView({ data }: { data: InboxData }) {
                         <div className="flex min-w-0 flex-col gap-1">
                           <h2 className="type-h4">{c.leadId ? <Link href={`/admin/crm/${c.leadId}`} className="rounded-sm hover:underline focus-ring">{c.name ?? "Unnamed"}</Link> : c.name ?? "Someone on the website"}</h2>
                           <p className="type-small text-fg-muted">{c.phone ? formatPhone(c.phone) : "Left no phone number"}</p>
-                          <p className="type-caption text-fg-muted">Waiting since {when(c.oldestAt)}</p>
+                          <p className={cx("type-caption", waited(c.oldestAt).late ? "font-semibold text-danger" : "text-fg-muted")} suppressHydrationWarning>
+                            Since {when(c.oldestAt)} · {waited(c.oldestAt).text}
+                          </p>
                         </div>
                         <Badge tone="warning">{c.items.length} {c.items.length === 1 ? "request" : "requests"}</Badge>
                       </div>

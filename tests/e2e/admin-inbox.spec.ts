@@ -42,6 +42,15 @@ test("requests from one phone are one card; handling it moves it to Handled", as
   await expect(page.getByText("Sent the catalogue").first()).toBeVisible();
 });
 
+test("a buyer waiting more than a day is shown in red", async ({ page }) => {
+  await sql(`select create_lead('{"name":"Late Buyer","phone":"919822200033","source":"request_price","message":"Hello"}'::jsonb)`);
+  await sql(`update inbox_items set created_at = now() - interval '30 hours' where phone = '919822200033'`);
+  await page.goto("admin/inbox", { waitUntil: "networkidle" });
+  const card = page.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Late Buyer" }) });
+  await expect(card.getByText(/waiting 1 d/)).toHaveClass(/text-danger/);
+  await sql(`update inbox_items set status = 'handled', handled_at = now() where phone = '919822200033'`);
+});
+
 test("a person who left no number can be dismissed", async ({ page }) => {
   await page.goto("admin/inbox", { waitUntil: "networkidle" });
   const card = page.getByRole("listitem").filter({ hasText: "Left no phone number" }).first();
