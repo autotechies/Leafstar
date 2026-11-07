@@ -1,10 +1,11 @@
 import "server-only";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import type { ZodType } from "zod";
 import { isSameOrigin, jsonError } from "@/lib/api";
 import { rateLimitAllow } from "@/lib/rate-limit";
 import { clientIp } from "@/lib/request";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { notifyOwner } from "@/modules/notify/notify";
 import { fieldErrors } from "./schemas";
 
 /*
@@ -39,10 +40,14 @@ export async function handleLead<T extends { website?: string }>(request: Reques
   const parsed = schema.safeParse(raw);
   if (!parsed.success) return jsonError("Please check the highlighted fields.", 400, { fieldErrors: fieldErrors(parsed.error) });
 
-  const { error } = await supabaseAdmin().rpc("create_lead", { p: toLead(parsed.data) as never });
+  const lead = toLead(parsed.data);
+  const { error } = await supabaseAdmin().rpc("create_lead", { p: lead as never });
   if (error) {
     console.error(`[${route}] create_lead failed`, error);
     return jsonError("We could not send that right now. Please call us or message us on WhatsApp.", 500);
   }
+  const what: Record<string, string> = { request_price: "asked for a price", enquiry_list: "sent an enquiry list", call_click: "asked for a call back", contact_form: "sent a message" };
+  const who = [lead.name, lead.phone ? `+${String(lead.phone)}` : null].filter(Boolean).join(" ");
+  after(() => notifyOwner({ title: "A buyer is waiting", body: `${who} ${what[String(lead.source)] ?? "contacted you"}.` }));
   return NextResponse.json({ ok: true });
 }

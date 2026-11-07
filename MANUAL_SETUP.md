@@ -45,8 +45,9 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | `GEMINI_MODEL` | a current Gemini Flash model name from Google AI Studio |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` locally; your domain live |
 | `CRON_SECRET` | any long random string you make up (32+ characters) |
-| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | run `npx web-push generate-vapid-keys` (Step 9) |
-| `EMAIL_API_KEY`, `ALERT_FROM_EMAIL` | email service account (Step 9; see section F) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | run `npx web-push generate-vapid-keys` (phone alerts) |
+| `VAPID_SUBJECT` | `mailto:` plus your email, for example `mailto:you@yourdomain.com` |
+| `RESEND_API_KEY`, `RESEND_FROM` | Resend account; `RESEND_FROM` like `Leaf Star <alerts@yourdomain.com>` on a domain you verified in Resend |
 
 ## E. GitHub
 - [ ] Repo `techie-29/Leafstar` is public; Settings → Pages → Source = **GitHub Actions**.
@@ -112,3 +113,11 @@ See "Go-live checklist" in `BUILD_PLAN.md`.
 - Run the 50-question check with your real key: `RUN_CHAT_EVAL=1 GEMINI_API_KEY=… GEMINI_MODEL=… npx vitest run tests/unit/chat-eval.test.ts` (prints a pass/fail table). It could not be run in the build sandbox because it needs your key.
 - Visitors: memory is off unless they tick "Remember my details", and "Forget me" deletes everything stored about them. Mention this in your Privacy page (the draft already covers it generally; please have it reviewed).
 - If the AI is paused, out of budget or down, the widget says so honestly and points to WhatsApp / call; the question is still logged.
+
+## K. Owner alerts and the phone app (Step 9)
+
+- Alerts need no migration. Set the keys in section D, then in **Admin → Settings** fill the private **alert email** (where new-enquiry emails go).
+- Without the keys nothing breaks: the Inbox still fills and shows live; only the email and phone alerts are off.
+- Phone app: open the admin site on your phone, then **Add to Home Screen** (iPhone: Safari → Share → Add to Home Screen; Android: Chrome menu → Install app). Open it from the home screen, go to **Inbox**, and tap **Turn on alerts here**. iPhone alerts only work from the home-screen app (iOS 16.4 or newer).
+- The home-screen icon is made from your small logo mark, so it looks soft. Send a larger square logo (at least 512 × 512) and replace `public/icons/icon-192.png` and `icon-512.png`.
+- Alerts and the live Inbox could not be tested on a real phone or against real Resend in the build sandbox; please test once with a real enquiry.

@@ -10,6 +10,11 @@ const serverSchema = z.object({
   GEMINI_API_KEY: z.string().min(10).optional(),
   GEMINI_MODEL: z.string().min(1).optional(),
   CRON_SECRET: z.string().min(24, "CRON_SECRET must be at least 24 characters").optional(),
+  RESEND_API_KEY: z.string().min(10).optional(),
+  RESEND_FROM: z.string().min(5).optional(),
+  VAPID_PUBLIC_KEY: z.string().min(20).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(20).optional(),
+  VAPID_SUBJECT: z.string().min(5).optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
@@ -23,6 +28,11 @@ export function serverEnv(): ServerEnv {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || undefined,
     GEMINI_MODEL: process.env.GEMINI_MODEL || undefined,
     CRON_SECRET: process.env.CRON_SECRET || undefined,
+    RESEND_API_KEY: process.env.RESEND_API_KEY || undefined,
+    RESEND_FROM: process.env.RESEND_FROM || undefined,
+    VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || undefined,
+    VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || undefined,
+    VAPID_SUBJECT: process.env.VAPID_SUBJECT || undefined,
   });
   if (!parsed.success) {
     throw new Error(`Missing or invalid server settings: ${z.prettifyError(parsed.error)}`);

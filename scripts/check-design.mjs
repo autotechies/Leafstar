@@ -12,7 +12,7 @@ import { join, relative } from "node:path";
 
 const root = new URL("..", import.meta.url).pathname;
 const srcDir = join(root, "src");
-const exempt = new Set(["src/app/globals.css", "src/lib/tokens.ts", "src/types/database.ts", "src/app/layout.tsx"]);
+const exempt = new Set(["src/app/globals.css", "src/lib/tokens.ts", "src/types/database.ts", "src/app/layout.tsx", "src/app/manifest.ts"]);
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {

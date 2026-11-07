@@ -1,6 +1,8 @@
 import "server-only";
 import { z } from "zod";
+import { after } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { notifyOwner } from "@/modules/notify/notify";
 import { AiUnavailableError, generate, type GeminiTransport } from "@/modules/ai/gemini";
 import { loadArticle, loadCatalog, loadSettings } from "@/modules/site/data";
 import { guardReply, phoneFromMessage } from "./guard";
@@ -127,7 +129,10 @@ export async function chatTurn(input: ChatInput, deps: { transport?: GeminiTrans
       p: { name: name ?? existing?.name ?? "Website chat visitor", phone, source: "chatbot", message: `Chat: ${input.message.slice(0, 300)}`, items: focus ? [{ article_id: focus.id, color_id: null, quantity: null }] : [] } as never,
     });
     if (error) console.error("[chat] create_lead failed", error);
-    else leadSaved = true;
+    else {
+      leadSaved = true;
+      after(() => notifyOwner({ title: "A buyer left a number in chat", body: `${name ?? "A visitor"} (+${phone}) wants a call.` }));
+    }
   }
 
   return { ok: true, sessionId, reply, needsOwner, fallback, leadSaved };
