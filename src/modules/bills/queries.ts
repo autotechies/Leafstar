@@ -1,5 +1,6 @@
 import "server-only";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requireStaff } from "@/modules/auth/session";
 import { CONFIDENT, type BillDraft, type DraftItem, type HistoryRow, type ScanJobRow, type VariantOption } from "./types";
@@ -34,6 +35,8 @@ export async function loadVariantOptions(): Promise<VariantOption[]> {
 }
 
 export async function loadQueue(): Promise<ScanJobRow[]> {
+  // Today's date is read below, so this must run at request time, not while the page is prepared ahead of time.
+  await connection();
   await requireStaff(undefined, "/admin/bills/scan");
   const supabase = await supabaseServer();
   const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
