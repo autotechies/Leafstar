@@ -100,7 +100,7 @@ Postgres 16-style Supabase. Extensions: `pg_trgm`. Enums: `app_role, article_cat
 | `is_admin()`, `bootstrap_owner()` | schema/004 | everywhere | See section 2. |
 
 ### 3.7 Row Level Security in one paragraph
-Every business table has RLS on, with a single policy `admin_all` (`is_admin()`), except: `profiles` (admin all + each user reads own row), `audit_log` (admin read only), `push_subscriptions` (own rows), `rate_limits` (none), `ai_usage` (admin read). Visitors never touch tables; public pages use the two views, and public writes go through server routes using the service key. DB tests (in `supabase/tests`) assert `anon` cannot read or write tables, cannot execute internal functions (except `is_admin`, `norm_alias`, `size_rank`), and cannot write through the public views.
+Every business table has RLS on, with a single policy `admin_all` (`is_admin()`), except: `profiles` (admin all + each user reads own row), `audit_log` (admin read only), `push_subscriptions` (own rows), `rate_limits` (none), `ai_usage` (admin read). Visitors never touch tables; public pages use the two views, and public writes go through server routes using the service key. DB tests (in `tests/db/`) assert `anon` cannot read or write tables, cannot execute internal functions (except `is_admin`, `norm_alias`, `size_rank`), and cannot write through the public views.
 
 ---
 
