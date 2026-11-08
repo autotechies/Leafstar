@@ -128,6 +128,83 @@ export async function setArticleStateAction(input: unknown): Promise<ActionResul
   return { ok: true };
 }
 
+/* ---------- Delete an article that has no real history (migration 013) ---------- */
+
+const reportSchema = z.object({
+  code: z.string(),
+  name: z.string(),
+  can_delete: z.boolean(),
+  blockers: z.array(z.string()),
+  colours: z.number(),
+  photos: z.number(),
+  entries: z.number(),
+  pieces: z.number(),
+});
+
+export interface DeleteReport {
+  code: string;
+  name: string;
+  canDelete: boolean;
+  /** Plain-English reasons the article must be kept (empty when it can be deleted). */
+  blockers: string[];
+  colours: number;
+  photos: number;
+  /** The owner's own stock entries that would be removed with it. */
+  entries: number;
+  pieces: number;
+}
+
+async function loadDeleteReport(articleId: string): Promise<DeleteReport | null> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("article_delete_report", { p_article_id: articleId });
+  if (error) {
+    console.error("[inventory] delete report", error.message);
+    return null;
+  }
+  const parsed = reportSchema.safeParse(data);
+  if (!parsed.success) return null;
+  const r = parsed.data;
+  return { code: r.code, name: r.name, canDelete: r.can_delete, blockers: r.blockers, colours: r.colours, photos: r.photos, entries: r.entries, pieces: r.pieces };
+}
+
+/** What deleting would remove, and what (if anything) means it must be archived instead. Changes nothing. */
+export async function checkArticleDeleteAction(input: unknown): Promise<ActionResult<{ report: DeleteReport }>> {
+  const parsed = z.object({ code: z.string(), articleId: z.uuid() }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "That article could not be found." };
+  await requireStaff(undefined, path(parsed.data.code));
+  const report = await loadDeleteReport(parsed.data.articleId);
+  if (!report) return { ok: false, error: "That article could not be checked. Reload and try again." };
+  return { ok: true, report };
+}
+
+const deleteSchema = z.object({ code: z.string(), articleId: z.uuid(), updatedAt: z.string(), confirm: z.string() });
+
+/**
+ * Deletes an article only when nothing real depends on it (no bills, no leads, no sales or returns).
+ * The owner must type the article code. The database re-checks every rule and does the delete in one step.
+ */
+export async function deleteArticleAction(input: unknown): Promise<ActionResult<{ code: string; name: string }>> {
+  const parsed = deleteSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Request not understood." };
+  const v = parsed.data;
+  await requireStaff(undefined, path(v.code));
+
+  const report = await loadDeleteReport(v.articleId);
+  if (!report) return { ok: false, error: "That article could not be checked. Reload and try again." };
+  if (!report.canDelete) return { ok: false, error: `This article has history that must be kept: ${report.blockers.join("; ")}. Archive it instead.` };
+  if (v.confirm.trim().toUpperCase() !== report.code.toUpperCase()) return { ok: false, error: "Type the article code exactly as shown to confirm." };
+
+  const supabase = await supabaseServer();
+  const { error } = await supabase.rpc("delete_article", { p_article_id: v.articleId, p_updated_at: v.updatedAt });
+  if (error) {
+    console.error("[inventory] delete", error.message);
+    if (/changed since you opened it/.test(error.message)) return { ok: false, error: CHANGED };
+    if (/must be kept/.test(error.message)) return { ok: false, error: "This article now has history that must be kept. Archive it instead." };
+    return { ok: false, error: FAIL };
+  }
+  return { ok: true, code: report.code, name: report.name };
+}
+
 const addColourSchema = z.object({ code: z.string(), articleId: z.uuid(), colour: colourSchema.omit({ stock: true }).extend({ stock: z.record(z.string(), z.number().int().min(0).max(1_000_000)) }) });
 
 export async function addColourAction(input: unknown): Promise<ActionResult> {

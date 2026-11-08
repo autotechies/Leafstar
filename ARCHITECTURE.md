@@ -97,6 +97,8 @@ Postgres 16-style Supabase. Extensions: `pg_trgm`. Enums: `app_role, article_cat
 | `rate_limit_allow(key, limit, window)` / `purge_rate_limits()` | 003 | public routes, login | DB-backed fixed-window limiter; the app **fails closed** if it errors. |
 | `ai_allowed()` | 003 | Gemini wrapper | Not paused and today's tokens (India day) under budget. |
 | `orphan_image_folders`, `forget_image_folders` | 005 | maintenance | Find/forget unused processed photos. |
+| `article_delete_report(article)` | 013 | Delete dialog | Read-only: what deleting would remove (colours, photos, stock entries, pieces) and the plain-English reasons it must be kept (bill lines, leads, sale/return entries). |
+| `delete_article(article, updated_at)` | 013 | Delete dialog | Re-checks the report, then in one transaction releases photo files for cleanup, removes the owner's own ledger rows (the only permitted ledger delete: flag `leafstar.ledger_purge` + `is_admin()` checked by `ledger_guard()`), writes them to `audit_log`, removes now-empty batches, and deletes the article (colours, variants, photo rows cascade). |
 | `is_admin()`, `bootstrap_owner()` | schema/004 | everywhere | See section 2. |
 
 ### 3.7 Row Level Security in one paragraph
@@ -117,6 +119,7 @@ Every business table has RLS on, with a single policy `admin_all` (`is_admin()`)
 1. Browser uploads photos straight to Storage via a signed URL (`/api/uploads/sign`), then `/api/images/process` downloads, rotates, strips EXIF, converts HEIC, makes thumb/medium/large WebP + blur placeholder, saves them, records `image_uploads`.
 2. Form → `createArticleAction` / `addStockAction` / `commitImportAction` → one DB function (3.6) → rows in `stock_movements` (`production`, with batch) → trigger updates `variants.stock`.
 3. UI shows a 15-second Undo toast → `undoStockEntryAction` → `undo_batch`.
+3b. Delete (Inventory detail): `checkArticleDeleteAction` → `article_delete_report`; the owner types the article code; `deleteArticleAction` re-checks on the server and calls `delete_article`. Blocked by any bill line, lead, or sale/return entry (Archive instead).
 4. Manual correction (Inventory detail): `adjustStockAction` inserts an `adjustment` movement with a required note; `undoMovementAction` reverses a manual entry once.
 5. Pages that show stock are refreshed (revalidated). The public view automatically hides anything out of stock.
 

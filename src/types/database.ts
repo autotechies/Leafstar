@@ -1573,6 +1573,7 @@ export type Database = {
       add_stock_batch: { Args: { p: Json }; Returns: string };
       ai_allowed: { Args: Record<PropertyKey, never>; Returns: boolean };
       apply_bill: { Args: { p_bill_id: string }; Returns: undefined };
+      article_delete_report: { Args: { p_article_id: string }; Returns: Json };
       bootstrap_owner: { Args: { p_email: string; p_name?: string }; Returns: string };
       create_lead: { Args: { p: Json }; Returns: Json };
       finish_scan_job: { Args: { p_job: string; p: Json }; Returns: string };
@@ -1607,6 +1608,7 @@ export type Database = {
       };
       create_article_full: { Args: { p: Json }; Returns: string };
       create_manual_lead: { Args: { p: Json }; Returns: Json };
+      delete_article: { Args: { p_article_id: string; p_updated_at: string }; Returns: Json };
       move_lead: {
         Args: { p_expected?: string; p_lead: string; p_reason?: string; p_stage: Database["public"]["Enums"]["lead_stage"] };
         Returns: Json;

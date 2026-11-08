@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArrowLeft, Eye, EyeOff, Plus, RotateCcw, Undo2 } from "lucide-react";
+import { Archive, ArrowLeft, Eye, EyeOff, Plus, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -19,7 +19,8 @@ import { SmartImage } from "@/modules/images/components/SmartImage";
 import type { Photo } from "@/modules/images/types";
 import { COLOUR_PRESETS, DEFAULT_COLOUR_HEX, SIZE_OPTIONS } from "@/modules/stock/constants";
 import {
-  addColourAction, addSizeAction, adjustStockAction, replacePhotosAction, setArticleStateAction, undoMovementAction, updateArticleAction,
+  addColourAction, addSizeAction, adjustStockAction, checkArticleDeleteAction, deleteArticleAction, replacePhotosAction, setArticleStateAction, undoMovementAction, updateArticleAction,
+  type DeleteReport,
 } from "../actions";
 import type { InvArticle, InvColour, InvVariant, Movement } from "../queries";
 import { visibilityLabel, visibilityOf } from "../status";
@@ -36,6 +37,7 @@ export function ArticleDetail({ article, movements, brands }: { article: InvArti
   const [editing, setEditing] = useState(false);
   const [addingColour, setAddingColour] = useState(false);
   const [photoColour, setPhotoColour] = useState<InvColour | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [stateError, setStateError] = useState<string | null>(null);
 
@@ -113,6 +115,7 @@ export function ArticleDetail({ article, movements, brands }: { article: InvArti
             ) : (
               <Button loading={busy} icon={<RotateCcw aria-hidden="true" className="size-icon-sm" />} onClick={() => void change("restore", "Restored. It stays hidden until you publish it.")}>Restore</Button>
             )}
+            <Button variant="ghost" icon={<Trash2 aria-hidden="true" className="size-icon-sm" />} onClick={() => setDeleting(true)}>Delete</Button>
           </div>
         </div>
         {stateError ? <Banner tone="danger">{stateError}</Banner> : null}
@@ -296,6 +299,18 @@ export function ArticleDetail({ article, movements, brands }: { article: InvArti
         <p className="type-body text-fg-muted">If this would take stock below zero it will be refused and nothing changes.</p>
       </Modal>
 
+      {deleting ? (
+        <DeleteDialog
+          article={article}
+          onClose={() => setDeleting(false)}
+          onArchive={() => { setDeleting(false); void change("archive", "Archived. It is hidden everywhere but its history is kept."); }}
+          onDeleted={(code) => {
+            toast.show({ kind: "success", title: `${code} was deleted.` });
+            router.push("/admin/inventory");
+            router.refresh();
+          }}
+        />
+      ) : null}
       {editing ? <EditDialog article={article} brands={brands} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); toast.show({ kind: "success", title: "Details saved." }); router.refresh(); }} /> : null}
       {addingColour ? <AddColourDialog article={article} sizes={sizes} onClose={() => setAddingColour(false)} onSaved={() => { setAddingColour(false); toast.show({ kind: "success", title: "Colour added." }); router.refresh(); }} /> : null}
       {photoColour ? <ReplacePhotosDialog article={article} colour={photoColour} onClose={() => setPhotoColour(null)} onSaved={() => { setPhotoColour(null); toast.show({ kind: "success", title: "Photos replaced." }); router.refresh(); }} /> : null}
@@ -353,6 +368,88 @@ function AdjustDialog({ code, colour, variant, onClose, onSaved }: { code: strin
           error={preview !== null && preview < 0 ? "That would take stock below zero" : undefined}
         />
         <TextInput label="Reason" required value={note} onChange={(e) => setNote(e.target.value)} placeholder="Recount, damaged, returned…" helper="Required. Shown in the history." />
+        {error ? <Banner tone="danger">{error}</Banner> : null}
+      </div>
+    </Modal>
+  );
+}
+
+type DeleteCheck = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; report: DeleteReport };
+
+/** Delete is allowed only when nothing real depends on the article. The owner sees exactly what goes, then types the code. */
+function DeleteDialog({ article, onClose, onArchive, onDeleted }: { article: InvArticle; onClose: () => void; onArchive: () => void; onDeleted: (code: string) => void }) {
+  const [check, setCheck] = useState<DeleteCheck>({ status: "loading" });
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void checkArticleDeleteAction({ code: article.code, articleId: article.id }).then((r) => {
+      if (!cancelled) setCheck(r.ok ? { status: "ready", report: r.report } : { status: "error", message: r.error });
+    });
+    return () => { cancelled = true; };
+  }, [article.code, article.id]);
+
+  const report = check.status === "ready" ? check.report : null;
+  const blocked = report !== null && !report.canDelete;
+  const matches = report !== null && confirm.trim().toUpperCase() === report.code.toUpperCase();
+
+  async function remove() {
+    setError(null);
+    setWorking(true);
+    const result = await deleteArticleAction({ code: article.code, articleId: article.id, updatedAt: article.updatedAt, confirm });
+    setWorking(false);
+    if (!result.ok) return setError(result.error);
+    onDeleted(result.code);
+  }
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={blocked ? "This article can't be deleted" : "Delete this article?"}
+      description={`${article.code} · ${article.name}`}
+      footer={
+        blocked ? (
+          <>
+            <Button variant="secondary" onClick={onClose}>Close</Button>
+            {article.isActive ? <Button icon={<Archive aria-hidden="true" className="size-icon-sm" />} onClick={onArchive}>Archive instead</Button> : null}
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button variant="danger" loading={working} disabled={!matches} icon={<Trash2 aria-hidden="true" className="size-icon-sm" />} onClick={() => void remove()}>Delete article</Button>
+          </>
+        )
+      }
+    >
+      <div className="flex flex-col gap-4">
+        {check.status === "loading" ? <p className="type-small text-fg-muted">Checking what depends on this article…</p> : null}
+        {check.status === "error" ? <Banner tone="danger">{check.message}</Banner> : null}
+        {report && blocked ? (
+          <>
+            <p className="type-body">It has history that must be kept, so it can only be archived:</p>
+            <ul className="flex flex-col gap-2 type-small font-semibold">
+              {report.blockers.map((b) => (
+                <li key={b}>{b}.</li>
+              ))}
+            </ul>
+            <p className="type-small text-fg-muted">Archiving hides it from the website and your lists. Nothing is lost.</p>
+          </>
+        ) : null}
+        {report && !blocked ? (
+          <>
+            <p className="type-body">This removes the article for good. No bill or buyer lead refers to it.</p>
+            <ul className="flex flex-col gap-2 type-small">
+              <li>{formatNumber(report.colours)} {report.colours === 1 ? "colour" : "colours"} and all their sizes</li>
+              <li>{formatNumber(report.photos)} {report.photos === 1 ? "photo" : "photos"}</li>
+              <li>{formatNumber(report.entries)} stock {report.entries === 1 ? "entry" : "entries"} in its history ({formatNumber(report.pieces)} pieces in stock now)</li>
+            </ul>
+            <p className="type-small text-fg-muted">What was removed is kept in the audit log. This cannot be undone.</p>
+            <TextInput label={`Type ${report.code} to confirm`} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" autoCapitalize="characters" />
+          </>
+        ) : null}
         {error ? <Banner tone="danger">{error}</Banner> : null}
       </div>
     </Modal>

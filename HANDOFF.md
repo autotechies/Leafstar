@@ -47,7 +47,7 @@ src/modules/               admin-shell, ai (gemini wrapper), auth, bills, chat, 
 src/components/            shared UI (ui/*, brand, charts)
 src/lib/                   supabase clients (browser, server, admin), env, formats
 src/proxy.ts               auth proxy, /dev gate
-supabase/                  schema.sql, 003..012 migrations, tests
+supabase/                  schema.sql, 003..013 migrations, tests
 tests/unit, tests/e2e      vitest, Playwright
 scripts/                   e2e.mjs, local-supabase.mjs, build-preview.mjs, check-design.mjs, ai-check.mjs
 ```
@@ -77,7 +77,7 @@ Key mechanisms:
 | 12 + 14 | Security pass (migration 011), error pages, deploy docs, chat photo search (migration 012) | 2bb8b2d |
 | after | Fixes after the owner started running locally: Date.now prerender errors, `ai:check`, bill-line split helper | 658694f, b068263, 2b3bfbb, bfc4890, 7ad4e0b |
 
-**Step 13 (real hosting on Vercel) has not been done.** Migrations required in order: schema.sql, 003, 004, 005, 006, 007, 008, 009, 010, 011 (closes a real hole, do not skip), 012.
+**Step 13 (real hosting on Vercel) has not been done.** Migrations required in order: schema.sql, 003, 004, 005, 006, 007, 008, 009, 010, 011 (closes a real hole, do not skip), 012, 013 (delete an article with no real history).
 
 ## 7. Testing
 - Unit/DB: `npx vitest run tests/unit` (86 pass, 1 skipped = the 50-question chat eval that needs a real key). DB tests run against a local Postgres.
@@ -93,7 +93,7 @@ Key mechanisms:
 4. Not yet built: visitor page-view tracking and "welcome back", Inbox "Anonymous" tab and bulk bar, Sentry-style alerting (only structured logs), stricter CSP with nonces, and Step 13 (Vercel deploy).
 
 ## 9. Owner to-do list (also in MANUAL_SETUP.md)
-Run migrations 004–012 in both Supabase projects · fill `.env.local` (Supabase URL/anon/service keys, `GEMINI_API_KEY`, `GEMINI_MODEL`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`, VAPID public/private/subject, `RESEND_API_KEY`, `RESEND_FROM`) · Supabase: sign-ups OFF, min password 12, reset-password email link, owner user + two-step login · accounts: Resend (verify domain), Vercel, domain · Admin → Settings: business details, alert email, brands, FAQ answers (chatbot answers only from these) · real content in `src/modules/site/content.ts` and photos (everything is placeholder now) · bigger square logo for PWA icons · test on a phone: push, email, chat, photo search, bill upload · privacy page legal review (add the 30-day chat-photo sentence) · run `RUN_CHAT_EVAL=1 … npx vitest run tests/unit/chat-eval.test.ts` with the real key · follow `DEPLOY.md` at go-live.
+Run migrations 004–013 in both Supabase projects · fill `.env.local` (Supabase URL/anon/service keys, `GEMINI_API_KEY`, `GEMINI_MODEL`, `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET`, VAPID public/private/subject, `RESEND_API_KEY`, `RESEND_FROM`) · Supabase: sign-ups OFF, min password 12, reset-password email link, owner user + two-step login · accounts: Resend (verify domain), Vercel, domain · Admin → Settings: business details, alert email, brands, FAQ answers (chatbot answers only from these) · real content in `src/modules/site/content.ts` and photos (everything is placeholder now) · bigger square logo for PWA icons · test on a phone: push, email, chat, photo search, bill upload · privacy page legal review (add the 30-day chat-photo sentence) · run `RUN_CHAT_EVAL=1 … npx vitest run tests/unit/chat-eval.test.ts` with the real key · follow `DEPLOY.md` at go-live.
 
 ## 10. Decisions already taken (change only if the owner asks)
 Lots: each article has a minimum order (default 50); a fixed lot size is optional (empty = any quantity ≥ MOQ) — the owner has not yet confirmed fixed packs vs any quantity. Types Shirt/Pant; 16 common colours one tap in Add Stock. Excel import columns: Article code, Article name, Type, Brand, Fabric, Pattern, Colour, Colour code, Colour hex, Size, Pieces. Stage names in CRM: New, Contacted, Quoted, Negotiation, Won, Lost. Old `.doc`/`.xls` bills are refused with a "re-save as .docx/.xlsx" message. Inbox items go red after 24 h.
