@@ -15,7 +15,7 @@ export function Badge({ tone = "neutral", children, className }: { tone?: BadgeT
   return (
     <span
       className={cx(
-        "inline-flex h-chip items-center gap-2 rounded-full px-3 type-caption",
+        "inline-flex h-chip shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 type-caption",
         tones[tone],
         className,
       )}

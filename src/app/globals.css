@@ -63,6 +63,7 @@
   --spacing-button-min: 96px;
   --spacing-sheet: 90dvh;
   --spacing-qr: 176px;
+  --spacing-board: 288px;   /* one CRM board column */
 
   /* max widths */
   --container-page: 1280px;

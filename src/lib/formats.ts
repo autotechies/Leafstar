@@ -22,6 +22,16 @@ export function formatPhone(digits: string): string {
   return `+${digits}`;
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-11-11" (or an ISO timestamp) → "11 Nov 2026" (DESIGN.md §6). Anything else is returned unchanged. */
+export function formatDay(value: string): string {
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return value;
+  const month = MONTHS[Number(m[2]) - 1];
+  return month ? `${Number(m[3])} ${month} ${m[1]}` : value;
+}
+
 /** Indian GSTIN: 2-digit state code, PAN (5 letters, 4 digits, 1 letter), entity number, "Z", check character. */
 export function normalizeGstin(input: string): string | null {
   const value = input.replace(/\s/g, "").toUpperCase();

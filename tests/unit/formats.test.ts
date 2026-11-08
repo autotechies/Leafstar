@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPhone, normalizeGstin, normalizeInstagram, normalizePhone, safeAdminPath } from "@/lib/formats";
+import { formatDay, formatPhone, normalizeGstin, normalizeInstagram, normalizePhone, safeAdminPath } from "@/lib/formats";
 
 describe("phone numbers", () => {
   it.each([
@@ -20,6 +20,17 @@ describe("phone numbers", () => {
   it("formats Indian numbers for display", () => {
     expect(formatPhone("919876543210")).toBe("+91 98765 43210");
     expect(formatPhone("971501234567")).toBe("+971501234567");
+  });
+});
+
+describe("dates", () => {
+  it("shows a date as 11 Nov 2026", () => {
+    expect(formatDay("2026-11-11")).toBe("11 Nov 2026");
+    expect(formatDay("2026-01-05T10:00:00+05:30")).toBe("5 Jan 2026");
+  });
+  it("leaves anything that is not a date alone", () => {
+    expect(formatDay("tomorrow")).toBe("tomorrow");
+    expect(formatDay("2026-13-01")).toBe("2026-13-01");
   });
 });
 

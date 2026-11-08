@@ -2,17 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
-import { Button, buttonClasses } from "@/components/ui/Button";
+import { Button } from "@/components/ui/Button";
 import { Banner } from "@/components/ui/Feedback";
 import { Select, Textarea, TextInput } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
 import { Tabs } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
-import { formatPhone } from "@/lib/formats";
+import { formatDay, formatPhone } from "@/lib/formats";
 import { formatRupees } from "@/lib/numbers";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import { createLeadAction, moveLeadAction } from "../actions";
@@ -31,13 +29,14 @@ export function LeadBoard({ leads }: { leads: LeadCard[] }) {
   const params = useSearchParams();
   const toast = useToast();
   const openId = params.get("lead");
+  // "Add a lead" lives in the page header (a link to ?add=1), so the header shows at once and the form opens from the address.
+  const adding = params.get("add") === "1";
   const [phoneTab, setPhoneTab] = useState<Stage>("new");
   const [dragging, setDragging] = useState<string | null>(null);
   const [over, setOver] = useState<Stage | null>(null);
   const [lostFor, setLostFor] = useState<{ id: string; updatedAt: string } | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", phone: "", businessName: "", city: "", instagram: "", message: "", nextFollowUp: "" });
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -53,11 +52,13 @@ export function LeadBoard({ leads }: { leads: LeadCard[] }) {
     return m;
   }, [leads]);
 
-  const openLead = (id: string | null) => {
+  const changeParams = (change: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(params.toString());
-    if (id) next.set("lead", id); else next.delete("lead");
+    change(next);
     router.replace(next.size ? `${pathname}?${next.toString()}` : pathname, { scroll: false });
   };
+  const openLead = (id: string | null) => changeParams((next) => (id ? next.set("lead", id) : next.delete("lead")));
+  const closeAdd = () => changeParams((next) => next.delete("add"));
 
   async function move(id: string, updatedAt: string, stage: Stage, why?: string) {
     setBusy(true);
@@ -95,11 +96,10 @@ export function LeadBoard({ leads }: { leads: LeadCard[] }) {
     const r = await createLeadAction(form);
     setBusy(false);
     if (!r.ok) return setFormError(r.error);
-    setAdding(false);
     setForm({ name: "", phone: "", businessName: "", city: "", instagram: "", message: "", nextFollowUp: "" });
     toast.show({ kind: "success", title: r.existing ? "This buyer already has an open lead. Opened it." : "Lead added." });
     router.refresh();
-    openLead(r.leadId);
+    changeParams((next) => { next.delete("add"); next.set("lead", r.leadId); });
   }
 
   const card = (l: LeadCard, stage: Stage) => {
@@ -110,19 +110,35 @@ export function LeadBoard({ leads }: { leads: LeadCard[] }) {
         draggable
         onDragStart={(e) => { setDragging(l.id); e.dataTransfer.setData("text/plain", l.id); e.dataTransfer.effectAllowed = "move"; }}
         onDragEnd={() => { setDragging(null); setOver(null); }}
-        className={cx("flex flex-col gap-3 rounded-lg border bg-surface p-3 shadow-1", overdue ? "border-danger" : "border-border", dragging === l.id && "opacity-50")}
+        className={cx("flex min-w-0 flex-col gap-3 rounded-lg border bg-surface p-4 shadow-1", overdue ? "border-danger" : "border-border", dragging === l.id && "opacity-50")}
       >
-        <button type="button" onClick={() => openLead(l.id)} className="flex flex-col gap-1 rounded-sm text-left focus-ring">
-          <span className="type-body font-semibold">{l.name}</span>
-          <span className="type-caption text-fg-muted">{[l.businessName, l.city].filter(Boolean).join(" · ") || formatPhone(l.phone)}</span>
+        <button type="button" onClick={() => openLead(l.id)} className="flex min-w-0 flex-col gap-1 rounded-sm text-left focus-ring">
+          <span className="truncate type-body font-semibold">{l.name}</span>
+          {[l.businessName, l.city].filter(Boolean).length > 0 ? <span className="truncate type-small text-fg-muted">{[l.businessName, l.city].filter(Boolean).join(" · ")}</span> : null}
+          <span className="truncate type-small tabular text-fg-muted">{formatPhone(l.phone)}</span>
         </button>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="neutral">{sourceLabel[l.source] ?? l.source}</Badge>
           {l.itemCount > 0 ? <span className="type-caption text-fg-muted">{l.itemCount} {l.itemCount === 1 ? "article" : "articles"}</span> : null}
-          {l.quotedAmount !== null ? <span className="type-caption tabular text-fg-muted">{formatRupees(l.quotedAmount)}</span> : null}
-          {overdue ? <Badge tone="danger">Follow-up overdue</Badge> : l.nextFollowUp ? <span className="type-caption text-fg-muted">Follow up {l.nextFollowUp}</span> : null}
+          {overdue ? <Badge tone="danger">Follow-up overdue</Badge> : null}
         </div>
-        <div className="lg:hidden">
+        {l.quotedAmount !== null || l.nextFollowUp ? (
+          <dl className="flex flex-col gap-1 border-t border-border pt-3 type-small">
+            {l.quotedAmount !== null ? (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-fg-muted">Quoted</dt>
+                <dd className="tabular font-semibold">{formatRupees(l.quotedAmount)}</dd>
+              </div>
+            ) : null}
+            {l.nextFollowUp ? (
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-fg-muted">Follow up</dt>
+                <dd className={cx("tabular font-semibold", overdue && "text-danger")}>{formatDay(l.nextFollowUp)}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
+        <div>
           <Select label={`Stage for ${l.name}`} hideLabel value={l.stage} options={STAGES.map((s) => ({ value: s, label: stageLabel[s] }))} onChange={(e) => requestMove(l.id, l.updatedAt, l.stage, e.target.value as Stage)} />
         </div>
       </li>
@@ -131,20 +147,21 @@ export function LeadBoard({ leads }: { leads: LeadCard[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Button icon={<Plus aria-hidden="true" className="size-icon" />} onClick={() => { setFormError(null); setAdding(true); }}>Add a lead</Button>
-        <Link href="/admin/crm/buyers" className={buttonClasses({ variant: "secondary" })}>Buyers</Link>
-      </div>
-
       <Tabs
-        className="lg:hidden"
+        className="md:hidden"
         label="Stages"
         value={phoneTab}
         onChange={(id) => setPhoneTab(id as Stage)}
         items={STAGES.map((s) => ({ id: s, label: stageLabel[s], count: byStage.get(s)?.length ?? 0 }))}
       />
 
-      <div className="grid gap-4 lg:grid-cols-6">
+      <div
+        role="region"
+        aria-label="Lead board. Scroll sideways to see every stage."
+        tabIndex={0}
+        // "relative" keeps the hidden screen-reader labels inside the scrolling board instead of widening the page.
+        className="relative flex flex-col gap-4 rounded-lg focus-ring md:flex-row md:items-stretch md:overflow-x-auto md:pb-4"
+      >
         {STAGES.map((stage) => {
           const list = byStage.get(stage) ?? [];
           return (
@@ -160,11 +177,14 @@ export function LeadBoard({ leads }: { leads: LeadCard[] }) {
                 setOver(null);
                 if (lead) requestMove(lead.id, lead.updatedAt, lead.stage, stage);
               }}
-              className={cx("flex-col gap-3 rounded-lg p-2 lg:flex", phoneTab === stage ? "flex" : "hidden", over === stage ? "bg-surface-2 outline outline-2 outline-gold" : "lg:bg-surface-2")}
+              className={cx("min-w-0 flex-col gap-3 rounded-lg p-3 md:flex md:w-board md:shrink-0", phoneTab === stage ? "flex" : "hidden", over === stage ? "bg-surface-2 outline outline-2 outline-gold" : "md:bg-surface-2")}
             >
-              <h2 className="hidden items-center justify-between type-h4 lg:flex">{stageLabel[stage]}<span className="type-caption tabular text-fg-muted">{list.length}</span></h2>
+              <h2 className="hidden items-center justify-between gap-3 px-1 type-h4 md:flex">
+                <span className="truncate">{stageLabel[stage]}</span>
+                <span className="inline-flex h-chip min-w-chip shrink-0 items-center justify-center rounded-full bg-surface px-2 type-caption tabular text-fg-muted">{list.length}</span>
+              </h2>
               <ul className="flex flex-col gap-3">{list.map((l) => card(l, stage))}</ul>
-              {list.length === 0 ? <p className="px-2 py-4 type-small text-fg-muted">Nothing here.</p> : null}
+              {list.length === 0 ? <p className="rounded-md border border-dashed border-border-strong px-4 py-6 text-center type-small text-fg-muted">No leads here</p> : null}
             </section>
           );
         })}
@@ -194,12 +214,12 @@ export function LeadBoard({ leads }: { leads: LeadCard[] }) {
 
       <Modal
         open={adding}
-        onClose={() => setAdding(false)}
+        onClose={closeAdd}
         title="Add a lead"
         description="For someone who contacted you by phone, in person or on Instagram."
         footer={
           <>
-            <Button variant="secondary" onClick={() => setAdding(false)}>Cancel</Button>
+            <Button variant="secondary" onClick={closeAdd}>Cancel</Button>
             <Button loading={busy} onClick={() => void createLead()}>Add lead</Button>
           </>
         }

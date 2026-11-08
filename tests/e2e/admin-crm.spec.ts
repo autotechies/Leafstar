@@ -23,7 +23,7 @@ const column = (page: import("@playwright/test").Page, name: string) => page.get
 
 test("add a lead by hand; it lands in New and a repeat phone opens the same lead", async ({ page }) => {
   await page.goto("admin/crm", { waitUntil: "networkidle" });
-  await page.getByRole("button", { name: "Add a lead" }).click();
+  await page.getByRole("link", { name: "Add a lead" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a lead" });
   await dialog.getByLabel(/^Name/).fill("Board Buyer");
   await dialog.getByLabel(/^Phone/).fill("98555 00001");
@@ -34,7 +34,7 @@ test("add a lead by hand; it lands in New and a repeat phone opens the same lead
   await expect(column(page, "New").getByRole("button", { name: /Board Buyer/ })).toBeVisible();
   expect(await sql(`select 1 from leads where phone = '${PHONE}' and source = 'manual'`)).toHaveLength(1);
 
-  await page.getByRole("button", { name: "Add a lead" }).click();
+  await page.getByRole("link", { name: "Add a lead" }).click();
   const again = page.getByRole("dialog", { name: "Add a lead" });
   await again.getByLabel(/^Name/).fill("Board Buyer");
   await again.getByLabel(/^Phone/).fill(PHONE);
@@ -51,7 +51,8 @@ test("drag through the stages; Lost asks for a reason and Cancel leaves it where
   await column(page, "Contacted").getByRole("listitem").filter({ hasText: "Board Buyer" }).dragTo(column(page, "Quoted"));
   await expect(column(page, "Quoted").getByRole("button", { name: /Board Buyer/ })).toBeVisible();
 
-  await column(page, "Quoted").getByRole("listitem").filter({ hasText: "Board Buyer" }).dragTo(column(page, "Lost"));
+  // Lost is the seventh column, off-screen on a laptop, so the card's stage menu is the way there.
+  await column(page, "Quoted").getByLabel("Stage for Board Buyer").selectOption("lost");
   const dialog = page.getByRole("dialog", { name: "Why was this lead lost?" });
   await expect(dialog.getByRole("button", { name: "Mark as lost" })).toBeDisabled();
   await dialog.getByRole("button", { name: "Cancel" }).click();
@@ -81,7 +82,7 @@ test("drawer: follow-up in the past is overdue, notes join the timeline, amount 
 
 test("Won creates a buyer who appears in the directory; a stale change is refused", async ({ page }) => {
   await page.goto("admin/crm", { waitUntil: "networkidle" });
-  await column(page, "Quoted").getByRole("listitem").filter({ hasText: "Board Buyer" }).dragTo(column(page, "Won"));
+  await column(page, "Quoted").getByLabel("Stage for Board Buyer").selectOption("won");
   await expect(column(page, "Won").getByRole("button", { name: /Board Buyer/ })).toBeVisible();
   const contact = await sql<{ name: string; roles: string[] }>(`select name, roles from contacts where phone = '${PHONE}'`);
   expect(contact).toHaveLength(1);

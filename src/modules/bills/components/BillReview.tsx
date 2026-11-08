@@ -12,9 +12,10 @@ import { Select, TextInput } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
-import { formatNumber } from "@/lib/numbers";
+import { formatNumber, formatRupees } from "@/lib/numbers";
 import { ImageViewer } from "@/modules/images/components/LazyImageViewer";
 import { discardScanJobAction, saveBillAction, undoBillAction } from "../actions";
+import { isAssortedLine } from "../assorted";
 import { CONFIDENT, type BillDraft, type DraftItem, type VariantOption } from "../types";
 
 /*
@@ -126,16 +127,16 @@ export function BillReview({ bill, options, nextDraftId }: { bill: BillDraft; op
       {bill.duplicate && !readOnly ? <Banner tone="warning">{bill.duplicate} Check that this is not the same bill twice.</Banner> : null}
 
       <div className="grid gap-6 lg:grid-cols-12">
-        <div className="lg:col-span-5">
+        <div className="min-w-0 lg:col-span-4 xl:col-span-5">
           <Original bill={bill} />
         </div>
-        <div className="flex flex-col gap-6 lg:col-span-7">
+        <div className="flex min-w-0 flex-col gap-6 lg:col-span-8 xl:col-span-7">
           <Card>
             <CardHeader title="Bill details" />
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <TextInput label="Bill number" value={number} disabled={readOnly} onChange={(e) => setNumber(e.target.value)} />
               <TextInput label="Bill date" type="date" value={date} disabled={readOnly} onChange={(e) => setDate(e.target.value)} />
-              <TextInput label="Buyer" value={buyer} disabled={readOnly} onChange={(e) => setBuyer(e.target.value)} />
+              <TextInput label="Buyer" className="md:col-span-2 xl:col-span-1" value={buyer} disabled={readOnly} onChange={(e) => setBuyer(e.target.value)} />
             </div>
           </Card>
 
@@ -161,26 +162,40 @@ export function BillReview({ bill, options, nextDraftId }: { bill: BillDraft; op
                 // A line that names one of our articles but no single colour and size (for example "Sizes S-XXL, assorted colours").
                 const nameCode = `${i.rawText} ${i.name}`.toUpperCase().match(/LS-[A-Z]{2}-\d{4}/)?.[0] ?? null;
                 const articleOptions = nameCode ? options.filter((o) => o.articleCode.toUpperCase() === nameCode) : [];
-                const splitLine = !readOnly && !i.size && articleOptions.length > 0 && (!i.variantId || articleOptions.some((o) => o.id === i.variantId));
+                const splitLine = !readOnly && isAssortedLine(i) && articleOptions.length > 0 && (!i.variantId || articleOptions.some((o) => o.id === i.variantId));
                 const choices = splitLine ? articleOptions : options;
                 return (
                   <li key={i.key} className={cx("flex flex-col gap-3 rounded-lg border p-3", !i.variantId ? "border-danger" : sure ? "border-border" : "border-warning")}>
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <p className="min-w-0 flex-1 type-small text-fg-muted">{i.rawText || "Added by hand"}</p>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <p className="type-body font-semibold">{i.name || i.rawText || "Added by hand"}</p>
+                        <dl className="flex flex-wrap gap-x-4 gap-y-1 type-small text-fg-muted">
+                          {i.colour ? <div className="flex gap-1"><dt>Colour</dt><dd className="font-semibold text-fg">{i.colour}</dd></div> : null}
+                          {i.size ? <div className="flex gap-1"><dt>Size</dt><dd className="font-semibold text-fg">{i.size}</dd></div> : null}
+                          {i.rate !== null ? <div className="flex gap-1"><dt>Rate</dt><dd className="tabular font-semibold text-fg">{formatRupees(i.rate)}</dd></div> : null}
+                          {i.amount !== null ? <div className="flex gap-1"><dt>Amount</dt><dd className="tabular font-semibold text-fg">{formatRupees(i.amount)}</dd></div> : null}
+                        </dl>
+                        {i.rawText && i.name ? (
+                          <details className="type-small text-fg-muted">
+                            <summary className="min-h-control cursor-pointer rounded-sm py-3 font-semibold focus-ring">Text on the bill</summary>
+                            <p>{i.rawText}</p>
+                          </details>
+                        ) : null}
+                      </div>
                       {!i.variantId ? <Badge tone="danger">Not matched</Badge> : sure ? <Badge tone="success">{methodLabel[i.method ?? ""] ?? "Matched"}</Badge> : <Badge tone="warning">Please check</Badge>}
                     </div>
                     <div className="grid gap-3 md:grid-cols-12">
-                      <div className="md:col-span-9">
+                      <div className="md:col-span-8">
                         <Select
                           label="Article"
-                          placeholder="Choose an article, colour and size"
+                          placeholder="Choose article, colour, size"
                           disabled={readOnly}
                           value={i.variantId ?? ""}
                           options={choices.map((o) => ({ value: o.id, label: o.label }))}
                           onChange={(e) => set(i.key, { variantId: e.target.value || null, method: e.target.value ? "manual" : null, confidence: e.target.value ? 1 : null, learn: !splitLine && Boolean(e.target.value) && Boolean(i.name || i.rawText) })}
                         />
                       </div>
-                      <div className="md:col-span-3">
+                      <div className="md:col-span-4">
                         <TextInput label="Pieces" inputMode="numeric" disabled={readOnly} value={String(i.qty)} onChange={(e) => set(i.key, { qty: Number(e.target.value.replace(/\D/g, "")) || 0 })} />
                       </div>
                     </div>
@@ -191,7 +206,7 @@ export function BillReview({ bill, options, nextDraftId }: { bill: BillDraft; op
                         </p>
                         <div>
                           <Button size="sm" variant="secondary" icon={<Plus aria-hidden="true" className="size-icon-sm" />} onClick={() => setItems((cur) => { const at = cur.findIndex((x) => x.key === i.key); const copy: DraftItem = { ...i, key: crypto.randomUUID(), variantId: null, qty: 0, method: null, confidence: null, learn: false }; return [...cur.slice(0, at + 1), copy, ...cur.slice(at + 1)]; })}>
-                            Split: add another line for this article
+                            Split this line
                           </Button>
                         </div>
                       </div>
