@@ -8,7 +8,7 @@ You click the buttons; nothing here needs code. Do these in order. Nothing goes 
 - [ ] You agree to move from the free test setup to paid plans where needed (Supabase Pro for daily backups; Vercel Pro if the site earns money, since the free Hobby plan is for non-commercial use).
 
 ## 1. The real Supabase project
-1. Create a **new** Supabase project for the business (not `leafstar-test`). Choose the region closest to your buyers (India: Mumbai).
+1. Create a **new** Supabase project for the business (not `leafstar-test`). Choose the region closest to your buyers (India: Mumbai). `vercel.json` pins the website's server functions to Mumbai (`bom1`) too, so each page does not cross the world to reach the database; without it Vercel runs them in the USA and every database call costs a few hundred milliseconds, which adds up to a slow admin.
 2. SQL Editor → run, in this order, each file once: `schema.sql`, `003_hardening.sql`, `004_…` through `011_security.sql` (the full list is in `MANUAL_SETUP.md` section A).
 3. SQL Editor → `select bootstrap_owner('your-email@example.com', 'Your Name');` after creating your user in Authentication → Users.
 4. Authentication → Sign In / Providers → **turn off "Allow new users to sign up"**.

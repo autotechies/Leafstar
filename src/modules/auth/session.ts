@@ -31,12 +31,17 @@ export type StaffLookup =
   | { status: "no-access"; email: string }
   | { status: "ok"; staff: Staff };
 
-/** Reads the session once per request (React cache), checking it with Supabase rather than trusting the cookie. */
+/**
+  Reads the session once per request (React cache). The sign-in token's signature and expiry are checked (getClaims),
+  and the staff profile (active, role) is read from the database on every request, so a switched-off person is
+  locked out at once. This avoids a second round trip to Supabase on every page (proxy.ts already checks the same way).
+*/
 export const lookupStaff = cache(async (): Promise<StaffLookup> => {
   const supabase = await supabaseServer();
-  const { data: userData, error } = await supabase.auth.getUser();
-  if (error || !userData.user) return { status: "signed-out" };
-  const user = userData.user;
+  const { data: claimsData, error } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+  if (error || !claims?.sub) return { status: "signed-out" };
+  const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : "" };
 
   const [{ data: profile }, { data: aal }] = await Promise.all([
     supabase.from("profiles").select("full_name, role, is_active").eq("id", user.id).maybeSingle(),
