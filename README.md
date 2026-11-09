@@ -7,6 +7,7 @@ a public website for buyers and an owner admin for stock, bills, enquiries and C
 - **Design:** [`DESIGN.md`](DESIGN.md) (colours, type, spacing, components, every screen)
 - **Plan:** [`BUILD_PLAN.md`](BUILD_PLAN.md) (steps 0–14, each with the owner's checklist)
 - **Database:** `supabase/schema.sql`, then every numbered file in `supabase/` in order (003 … 011), run once each in the Supabase SQL Editor. The exact list and status is in [`MANUAL_SETUP.md`](MANUAL_SETUP.md)
+- **New computer or handing the project to someone:** [`SETUP_NEW_DEVICE.md`](SETUP_NEW_DEVICE.md)
 - **Going live:** [`DEPLOY.md`](DEPLOY.md)
 - **Security review:** [`SECURITY_AUDIT.md`](SECURITY_AUDIT.md)
 
