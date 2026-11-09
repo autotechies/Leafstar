@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Checkbox, TextInput } from "@/components/ui/Field";
 import { Drawer } from "@/components/ui/Modal";
 import { cx } from "@/lib/cx";
+import type { ChatProduct } from "../cards";
+import { formatReply } from "../format";
 import { whatsappLink } from "@/modules/site/links";
 
 /*
@@ -16,8 +18,7 @@ import { whatsappLink } from "@/modules/site/links";
   "Forget me" deletes everything stored about them.
 */
 
-interface Suggestion { code: string; name: string; thumb: string | null }
-interface Message { id: string; role: "user" | "assistant"; text: string; image?: string; suggestions?: Suggestion[] }
+interface Message { id: string; role: "user" | "assistant"; text: string; image?: string; products?: ChatProduct[]; similar?: boolean; quickReplies?: string[] }
 
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 
@@ -60,13 +61,62 @@ function visitorId(): string {
   return fresh;
 }
 
-const GREETING = "Hello! I can help with our shirts and pants, minimum lots and how ordering works. For prices, the owner will call you personally.";
+const GREETING = "Hi, I'm Leaf Star. I can show you our shirts and pants, and explain minimum lots and how ordering works. For prices, the owner will call you personally.";
+const START_CHIPS = ["Show me shirts", "Show me pants", "Minimum order", "How do I order?"];
+
+/** The assistant's words: short paragraphs and bullet lists, with bold. Built as elements, never as HTML. */
+function ChatText({ text }: { text: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      {formatReply(text).map((b, i) =>
+        b.kind === "p" ? (
+          <p key={i}>{b.parts.map((x, j) => (x.bold ? <strong key={j}>{x.text}</strong> : <span key={j}>{x.text}</span>))}</p>
+        ) : (
+          <ul key={i} className="flex list-disc flex-col gap-1 pl-4">
+            {b.items.map((item, k) => (
+              <li key={k}>{item.map((x, j) => (x.bold ? <strong key={j}>{x.text}</strong> : <span key={j}>{x.text}</span>))}</li>
+            ))}
+          </ul>
+        ),
+      )}
+    </div>
+  );
+}
+
+/** One article under a reply: photo, name, code, colour dots, sizes, minimum order, and a link to its page. */
+function ProductCard({ p, similar, onOpen }: { p: ChatProduct; similar: boolean; onOpen: () => void }) {
+  return (
+    <Link href={`/catalog/${encodeURIComponent(p.code)}`} onClick={onOpen} className="flex gap-3 rounded-lg border border-border bg-surface p-2 text-fg focus-ring">
+      {p.thumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={p.thumb} alt="" className="aspect-4/5 w-16 shrink-0 rounded-md object-cover" />
+      ) : (
+        <span aria-hidden="true" className="aspect-4/5 w-16 shrink-0 rounded-md bg-surface-2" />
+      )}
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="type-small font-semibold">{p.name}</span>
+        <span className="type-caption text-gold-text">{p.code}{similar ? " · similar" : ""}</span>
+        {p.colours.length ? (
+          <span className="flex items-center gap-1" role="img" aria-label={`Colours: ${p.colours.map((c) => c.name).join(", ")}`}>
+            {p.colours.map((c) => (
+              // The dot's colour is the article's own colour value from the catalog.
+              <span key={c.name} aria-hidden="true" className="size-3 rounded-full border border-border" style={{ backgroundColor: c.hex }} />
+            ))}
+          </span>
+        ) : null}
+        <span className="type-caption text-fg-muted">
+          {p.sizes.length ? `Sizes ${p.sizes.join(", ")} · ` : ""}Min {p.moq} pcs{p.lowStock ? " · limited stock" : ""}
+        </span>
+      </span>
+    </Link>
+  );
+}
 
 export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [articleCode, setArticleCode] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([{ id: "hello", role: "assistant", text: GREETING }]);
+  const [messages, setMessages] = useState<Message[]>([{ id: "hello", role: "assistant", text: GREETING, quickReplies: START_CHIPS }]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [remember, setRemember] = useState(false);
@@ -95,9 +145,9 @@ export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
   }, [messages, busy]);
 
   const send = useCallback(
-    async (event?: FormEvent) => {
+    async (event?: FormEvent, preset?: string) => {
       event?.preventDefault();
-      const text = draft.trim() || (photo ? "Do you have something like this?" : "");
+      const text = preset ?? (draft.trim() || (photo ? "Do you have something like this?" : ""));
       if (!text || busy) return;
       const attached = photo;
       setDraft("");
@@ -112,10 +162,10 @@ export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ visitorId: visitorId(), sessionId: sessionId.current, message: text, articleCode, remember, website: trap, image: attached ? attached.replace(/^data:[^,]+,/, "") : undefined }),
         });
-        const data = (await response.json().catch(() => null)) as { ok?: boolean; reply?: string; sessionId?: string; error?: string; suggestions?: Suggestion[] } | null;
+        const data = (await response.json().catch(() => null)) as { ok?: boolean; reply?: string; sessionId?: string; error?: string; products?: ChatProduct[]; similar?: boolean; quickReplies?: string[] } | null;
         if (response.ok && data?.ok && data.reply) {
           if (data.sessionId) sessionId.current = data.sessionId;
-          setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", text: data.reply as string, suggestions: data.suggestions?.length ? data.suggestions : undefined }]);
+          setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", text: data.reply as string, products: data.products?.length ? data.products : undefined, similar: data.similar, quickReplies: data.quickReplies?.length ? data.quickReplies : undefined }]);
         } else {
           const rate = response.status === 429;
           setMessages((m) => [...m, { id: crypto.randomUUID(), role: "assistant", text: rate ? (data?.error ?? "Please wait a few minutes before sending more.") : "Sorry, I could not answer just now. Please call us or message us on WhatsApp." }]);
@@ -140,7 +190,7 @@ export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
     writeStore(REMEMBER_KEY, null);
     sessionId.current = null;
     setRemember(false);
-    setMessages([{ id: "hello", role: "assistant", text: GREETING }]);
+    setMessages([{ id: "hello", role: "assistant", text: GREETING, quickReplies: START_CHIPS }]);
     setForgotten(true);
   }
 
@@ -197,31 +247,34 @@ export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
       >
         <div className="flex flex-col gap-4">
           <ul className="flex flex-col gap-3" aria-live="polite" aria-label="Conversation">
-            {messages.map((m) => (
-              <li key={m.id} className={cx("max-w-prose rounded-lg px-4 py-3 type-body", m.role === "user" ? "ml-8 self-end bg-gold text-on-gold" : "mr-8 self-start bg-surface-2 text-fg")}>
-                {m.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.image} alt="The photo you sent" className="mb-2 max-h-48 rounded-md" />
+            {messages.map((m, index) => (
+              <li key={m.id} className={cx("flex flex-col gap-3", m.role === "user" ? "ml-8 items-end" : "mr-8 items-start")}>
+                <div className={cx("max-w-prose rounded-lg px-4 py-3 type-body", m.role === "user" ? "bg-gold text-on-gold" : "bg-surface-2 text-fg")}>
+                  {m.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={m.image} alt="The photo you sent" className="mb-2 max-h-48 rounded-md" />
+                  ) : null}
+                  {m.role === "assistant" ? <ChatText text={m.text} /> : m.text}
+                </div>
+                {m.products ? (
+                  <ul className="flex w-full flex-col gap-2" aria-label={m.similar ? "Similar articles" : "Articles"}>
+                    {m.products.map((p) => (
+                      <li key={p.code}><ProductCard p={p} similar={Boolean(m.similar)} onOpen={() => setOpen(false)} /></li>
+                    ))}
+                  </ul>
                 ) : null}
-                {m.text}
-                {m.suggestions ? (
-                  <ul className="mt-3 flex flex-col gap-2" aria-label="Similar articles">
-                    {m.suggestions.map((a) => (
-                      <li key={a.code}>
-                        <Link href={`/catalog/${encodeURIComponent(a.code)}`} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-md border border-border bg-surface p-2 text-fg focus-ring">
-                          {a.thumb ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={a.thumb} alt="" className="aspect-4/5 w-12 rounded-sm object-cover" />
-                          ) : null}
-                          <span className="flex min-w-0 flex-col"><span className="type-small font-semibold">{a.name}</span><span className="type-caption text-gold-text">{a.code} · similar</span></span>
-                        </Link>
+                {m.quickReplies && index === messages.length - 1 && !busy ? (
+                  <ul className="flex flex-wrap gap-2" aria-label="Suggested replies">
+                    {m.quickReplies.map((q) => (
+                      <li key={q}>
+                        <button type="button" onClick={() => void send(undefined, q)} className="inline-flex min-h-control items-center rounded-full border border-border-strong bg-surface px-4 type-small font-semibold hover:bg-surface-2 focus-ring">{q}</button>
                       </li>
                     ))}
                   </ul>
                 ) : null}
               </li>
             ))}
-            {busy ? <li className="self-start rounded-lg bg-surface-2 px-4 py-3 type-small text-fg-muted">Typing…</li> : null}
+            {busy ? <li className="self-start rounded-lg bg-surface-2 px-4 py-3 type-small text-fg-muted" role="status">Leaf Star is typing…</li> : null}
           </ul>
           <div ref={endRef} />
           <div className="flex flex-col gap-3 rounded-lg border border-border p-3">

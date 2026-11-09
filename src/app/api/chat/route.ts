@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   if (!raw || typeof raw !== "object") return jsonError("That request was not understood.", 400);
   // Bot trap: a hidden field a person never fills. Pretend it worked.
   if (typeof (raw as { website?: unknown }).website === "string" && (raw as { website: string }).website !== "") {
-    return NextResponse.json({ ok: true, reply: "Thank you.", sessionId: null, needsOwner: false, suggestions: [], fallback: false, leadSaved: false });
+    return NextResponse.json({ ok: true, reply: "Thank you.", sessionId: null, needsOwner: false, products: [], similar: false, quickReplies: [], fallback: false, leadSaved: false });
   }
   const parsed = chatInput.safeParse(raw);
   if (!parsed.success) return jsonError("Please type a message of up to 800 characters.", 400);

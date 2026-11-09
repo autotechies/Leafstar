@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { notifyOwner } from "@/modules/notify/notify";
 import { AiUnavailableError, generate, type GeminiTransport } from "@/modules/ai/gemini";
 import { loadArticle, loadCatalog, loadSettings } from "@/modules/site/data";
+import { cleanQuickReplies, pickProducts, type ChatProduct } from "./cards";
 import { guardReply, phoneFromMessage } from "./guard";
 import { prepareChatImage } from "./image";
 import { buildSystemPrompt, CHAT_JSON_SCHEMA } from "./prompt";
@@ -32,6 +33,8 @@ const modelAnswer = z.object({
   reply: z.string(),
   needs_owner: z.boolean().default(false),
   similar_codes: z.array(z.string()).default([]),
+  product_codes: z.array(z.string()).default([]),
+  quick_replies: z.array(z.string()).default([]),
   image_unreadable: z.boolean().default(false),
   unanswered_question: z.string().nullable().default(null),
   name: z.string().nullable().default(null),
@@ -43,8 +46,12 @@ export interface ChatResult {
   sessionId: string;
   reply: string;
   needsOwner: boolean;
-  /** Articles the assistant thinks look like the visitor's photo ("similar to", never "exact"). */
-  suggestions: Array<{ code: string; name: string; thumb: string | null }>;
+  /** Cards to show under the reply: articles it talks about, or (with a photo) ones that look similar ("similar to", never "exact"). */
+  products: ChatProduct[];
+  /** True when the cards are look-alikes of the visitor's photo. */
+  similar: boolean;
+  /** Short tappable follow-ups. */
+  quickReplies: string[];
   /** True when the AI could not be used and the visitor should be sent to WhatsApp / a call. */
   fallback: boolean;
   leadSaved: boolean;
@@ -60,7 +67,7 @@ export async function chatTurn(input: ChatInput, deps: { transport?: GeminiTrans
   let photo: Buffer | null = null;
   if (input.image) {
     const prepared = await prepareChatImage(input.image);
-    if (!prepared.ok) return { ok: true, sessionId: input.sessionId ?? "", reply: prepared.error, needsOwner: false, suggestions: [], fallback: false, leadSaved: false };
+    if (!prepared.ok) return { ok: true, sessionId: input.sessionId ?? "", reply: prepared.error, needsOwner: false, products: [], similar: false, quickReplies: [], fallback: false, leadSaved: false };
     photo = prepared.data;
   }
 
@@ -108,7 +115,9 @@ export async function chatTurn(input: ChatInput, deps: { transport?: GeminiTrans
   let name: string | null = null;
   let note: string | null = null;
   let hiddenNames: string[] = [];
-  let suggestions: ChatResult["suggestions"] = [];
+  let products: ChatProduct[] = [];
+  let similar = false;
+  let quickReplies: string[] = [];
 
   try {
     const [{ articles }, settings, { data: faqs }, { data: hidden }] = await Promise.all([
@@ -130,15 +139,14 @@ export async function chatTurn(input: ChatInput, deps: { transport?: GeminiTrans
     reply = guarded.text;
     fallback = false;
     needsOwner = parsed.data.needs_owner || guarded.replaced;
+    // Cards come from the real catalog only, whatever codes the model wrote.
     if (photo && !parsed.data.image_unreadable) {
-      // Only articles that are really on the website can be suggested, whatever the model wrote.
-      const byCode = new Map(articles.map((a) => [a.code.toUpperCase(), a]));
-      suggestions = [...new Set(parsed.data.similar_codes.map((c) => c.trim().toUpperCase()))]
-        .map((c) => byCode.get(c))
-        .filter((a): a is NonNullable<typeof a> => Boolean(a))
-        .slice(0, 3)
-        .map((a) => ({ code: a.code, name: a.name, thumb: (a.colours.find((c) => c.photos.length)?.photos[0] ?? a.photos[0])?.thumbUrl ?? null }));
+      products = pickProducts(parsed.data.similar_codes, articles, 3);
+      similar = products.length > 0;
     }
+    if (products.length === 0) products = pickProducts(parsed.data.product_codes, articles, 4);
+    // Once the visitor has given a phone number the next step is the owner's call, not more tapping.
+    quickReplies = phone ? [] : cleanQuickReplies(parsed.data.quick_replies);
     unanswered = parsed.data.unanswered_question?.trim().slice(0, 300) || null;
     name = parsed.data.name?.trim().slice(0, 80) || null;
     note = parsed.data.memory_note?.trim().slice(0, 200) || null;
@@ -170,7 +178,7 @@ export async function chatTurn(input: ChatInput, deps: { transport?: GeminiTrans
     }
   }
 
-  return { ok: true, sessionId, reply, needsOwner, suggestions, fallback, leadSaved };
+  return { ok: true, sessionId, reply, needsOwner, products, similar, quickReplies, fallback, leadSaved };
 }
 
 /** "Forget me": everything stored about this visitor, including chats, goes (cascade). */
