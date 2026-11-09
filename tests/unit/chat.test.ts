@@ -44,7 +44,7 @@ describe("phone from the visitor's own message", () => {
 
 describe("system prompt", () => {
   const prompt = buildSystemPrompt({
-    settings: { businessName: "Leaf Star", tagline: "Wholesale", phone: "919876543210", whatsapp: "919876543210", email: null, address: null, city: "Surat", instagram: null },
+    settings: { businessName: "Leaf Star", tagline: "Wholesale", phone: "919876543210", whatsapp: "919876543210", email: null, address: null, city: "Surat", instagram: null, facebook: null, establishedYear: null },
     articles: [article], faqs: [{ question: "Do you give credit?", answer: "Yes, to known buyers." }], memory: null, focus: article,
   });
   it("carries the rules, the article and the FAQ", () => {

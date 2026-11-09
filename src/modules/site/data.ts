@@ -48,6 +48,8 @@ export interface PublicSettings {
   address: string | null;
   city: string | null;
   instagram: string | null;
+  facebook: string | null;
+  establishedYear: number | null;
 }
 
 function anonClient() {
@@ -149,6 +151,9 @@ export async function loadSettings(): Promise<PublicSettings | null> {
       address: data.address,
       city: data.city,
       instagram: data.instagram,
+      // Older databases (014 not run yet) have neither column; the footer simply leaves them out.
+      facebook: (data as { facebook?: string | null }).facebook ?? null,
+      establishedYear: (data as { established_year?: number | null }).established_year ?? null,
     };
   } catch (error) {
     console.error("[site] settings read failed", error);

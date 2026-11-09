@@ -23,6 +23,8 @@ export function BusinessDetailsForm({ settings }: { settings: BusinessSettings }
     city: settings.city,
     gstin: settings.gstin,
     instagram: settings.instagram,
+    facebook: settings.facebook ?? null,
+    established_year: settings.established_year ?? null,
   };
 
   return (
@@ -58,6 +60,22 @@ export function BusinessDetailsForm({ settings }: { settings: BusinessSettings }
           autoCapitalize="none"
           defaultValue={v?.instagram ?? settings.instagram ?? ""}
           error={e.instagram}
+        />
+        <TextInput
+          label="Facebook page"
+          name="facebook"
+          autoCapitalize="none"
+          defaultValue={v?.facebook ?? settings.facebook ?? ""}
+          helper="Paste the link to your page. Shown in the website footer."
+          error={e.facebook}
+        />
+        <TextInput
+          label="Year started"
+          name="established_year"
+          inputMode="numeric"
+          defaultValue={v?.established_year ?? (settings.established_year ? String(settings.established_year) : "")}
+          helper="Shown as “Since 2016” on the website."
+          error={e.established_year}
         />
         <Textarea label="Address" name="address" rows={3} defaultValue={v?.address ?? settings.address ?? ""} error={e.address} className="md:col-span-2" />
         <TextInput label="City" name="city" autoComplete="address-level2" defaultValue={v?.city ?? settings.city ?? ""} error={e.city} />

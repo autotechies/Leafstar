@@ -23,6 +23,7 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 10 | `supabase/011_security.sql` | run (added in Step 12; closes a real hole, do not skip) |
 | 11 | `supabase/012_chat_images.sql` | run (added in Step 14; creates the private `chat-images` bucket) |
 | 12 | `supabase/013_delete_article.sql` | run (adds Delete for articles with no real history; run in **both** Supabase projects) |
+| 13 | `supabase/014_footer_details.sql` | run (adds Facebook and Year started to Settings, fills in your address, email, Instagram and Facebook where Settings is still empty; run in **both** Supabase projects) |
 
 ## B. Supabase settings [now]
 - [ ] Authentication → sign-ups **OFF**; password minimum length **12**; leaked-password protection ON if your plan has it.
@@ -134,6 +135,7 @@ See "Go-live checklist" in `BUILD_PLAN.md`.
 
 ## L2. Deleting an article (added after Step 14)
 
+- Run `014_footer_details.sql` in both Supabase projects. Until you do, the footer shows no Facebook link or "Since" year, and saving Business details in Settings will fail.
 - Run `013_delete_article.sql` in both Supabase projects. Until you do, the **Delete** button on an article will say it could not be checked.
 - **Delete** appears next to Archive on an article's page. It works only when nothing real depends on the article: no scanned bill has a line for it, no buyer lead asked about it, and its stock history holds no sale or return. Otherwise the dialog lists the reasons and offers **Archive instead**.
 - When it is allowed, the article goes with its colours, sizes, photos and your own stock entries (production, opening stock, corrections and their undos). You must type the article code to confirm. What was removed is written to the audit log. It cannot be undone.

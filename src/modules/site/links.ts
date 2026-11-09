@@ -17,3 +17,19 @@ export function mapsLink(address: string | null | undefined, city?: string | nul
   const q = [address, city].filter(Boolean).join(", ");
   return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null;
 }
+
+export function facebookLink(page: string | null | undefined): string | null {
+  if (!page || !/^[A-Za-z0-9.-]{5,60}$/.test(page)) return null;
+  return /^\d+$/.test(page) ? `https://www.facebook.com/profile.php?id=${page}` : `https://www.facebook.com/${page}`;
+}
+
+/** The address as one line, for display and for the map. */
+export function addressLine(address: string | null | undefined, city?: string | null): string {
+  return [address, city].filter(Boolean).join(", ");
+}
+
+/** Google Maps embed address for the small map in the footer (the link around it opens the full map). */
+export function mapEmbedSrc(address: string | null | undefined, city?: string | null): string | null {
+  const q = addressLine(address, city);
+  return q ? `https://www.google.com/maps?q=${encodeURIComponent(q)}&z=16&output=embed` : null;
+}

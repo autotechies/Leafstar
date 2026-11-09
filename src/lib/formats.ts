@@ -51,6 +51,22 @@ export function normalizeInstagram(input: string): string | null {
 }
 
 /**
+ * Facebook page name or number (what comes after facebook.com/), from a profile link, "profile.php?id=…" link or the bare value.
+ * Letters, digits, "." and "-" only, 5 to 60 characters.
+ */
+export function normalizeFacebook(input: string): string | null {
+  let value = input.trim();
+  const byId = value.match(/facebook\.com\/profile\.php\?(?:[^#\s]*&)?id=(\d+)/i);
+  if (byId) value = byId[1];
+  else {
+    const fromUrl = value.match(/facebook\.com\/([^/?#\s]+)/i);
+    if (fromUrl) value = fromUrl[1];
+  }
+  value = value.replace(/^@/, "");
+  return /^[A-Za-z0-9.-]{5,60}$/.test(value) ? value : null;
+}
+
+/**
  * Where to send someone after login: only a path inside the admin, never another site
  * ("//evil.example" and "https://…" are refused), so a crafted link cannot misuse our login page.
  */

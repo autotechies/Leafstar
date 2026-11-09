@@ -5,7 +5,7 @@ import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requireStaff } from "@/modules/auth/session";
 import { fieldErrorsFrom, formValues, type FormState } from "@/lib/form-state";
-import { normalizeGstin, normalizeInstagram, normalizePhone } from "@/lib/formats";
+import { normalizeFacebook, normalizeGstin, normalizeInstagram, normalizePhone } from "@/lib/formats";
 import type { Database } from "@/types/database";
 
 /*
@@ -84,7 +84,7 @@ function outcome(result: "saved" | "conflict" | "failed", success: string, value
 
 // ---------- business details ----------
 
-const BUSINESS_FIELDS = ["business_name", "tagline", "phone", "whatsapp", "email", "address", "city", "gstin", "instagram"] as const;
+const BUSINESS_FIELDS = ["business_name", "tagline", "phone", "whatsapp", "email", "address", "city", "gstin", "instagram", "facebook", "established_year"] as const;
 
 const businessSchema = z.object({
   business_name: z.string().trim().min(1, "Enter the business name").max(80, "Business name can be at most 80 characters"),
@@ -101,6 +101,12 @@ const businessSchema = z.object({
   city: optionalText(60, "City"),
   gstin: optionalFormatted(normalizeGstin, "That doesn't look like a GSTIN (15 characters, e.g. 27ABCDE1234F1Z5)"),
   instagram: optionalFormatted(normalizeInstagram, "Enter the Instagram username, e.g. @leafstar"),
+  facebook: optionalFormatted(normalizeFacebook, "Paste the link to your Facebook page"),
+  established_year: z
+    .string()
+    .trim()
+    .transform((v) => (v === "" ? null : Number(v)))
+    .pipe(z.number().int("Enter a year, like 2016").min(1900, "Enter a year, like 2016").max(2100, "Enter a year, like 2016").nullable()),
 });
 
 export async function saveBusinessDetails(_prev: FormState, formData: FormData): Promise<FormState> {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDay, formatPhone, normalizeGstin, normalizeInstagram, normalizePhone, safeAdminPath } from "@/lib/formats";
+import { formatDay, formatPhone, normalizeFacebook, normalizeGstin, normalizeInstagram, normalizePhone, safeAdminPath } from "@/lib/formats";
 
 describe("phone numbers", () => {
   it.each([
@@ -68,4 +68,17 @@ describe("where to go after login", () => {
       expect(safeAdminPath(input)).toBe("/admin");
     },
   );
+});
+
+describe("facebook page", () => {
+  it("takes a page link, a profile.php link or the bare value", () => {
+    expect(normalizeFacebook("https://www.facebook.com/100091435143951/")).toBe("100091435143951");
+    expect(normalizeFacebook("https://www.facebook.com/profile.php?id=100091435143951")).toBe("100091435143951");
+    expect(normalizeFacebook("https://facebook.com/leafstar.clothing?ref=x")).toBe("leafstar.clothing");
+    expect(normalizeFacebook("leafstar.clothing")).toBe("leafstar.clothing");
+  });
+  it("refuses things that cannot be a page", () => {
+    expect(normalizeFacebook("abc")).toBeNull();
+    expect(normalizeFacebook("bad name!")).toBeNull();
+  });
 });

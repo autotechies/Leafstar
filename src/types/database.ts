@@ -508,6 +508,8 @@ export type Database = {
           business_name: string;
           city: string | null;
           email: string | null;
+          established_year: number | null;
+          facebook: string | null;
           gstin: string | null;
           id: boolean;
           instagram: string | null;
@@ -525,6 +527,8 @@ export type Database = {
           business_name?: string;
           city?: string | null;
           email?: string | null;
+          established_year?: number | null;
+          facebook?: string | null;
           gstin?: string | null;
           id?: boolean;
           instagram?: string | null;
@@ -541,6 +545,8 @@ export type Database = {
           business_name?: string;
           city?: string | null;
           email?: string | null;
+          established_year?: number | null;
+          facebook?: string | null;
           gstin?: string | null;
           id?: boolean;
           instagram?: string | null;
@@ -1514,6 +1520,8 @@ export type Database = {
           business_name: string;
           city: string | null;
           email: string | null;
+          established_year: number | null;
+          facebook: string | null;
           instagram: string | null;
           phone: string | null;
           tagline: string;

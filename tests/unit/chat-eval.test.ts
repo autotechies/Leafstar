@@ -43,7 +43,7 @@ describe.skipIf(!enabled)("chatbot question run (real model)", () => {
   it("passes every rule on ~50 questions", async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY as string });
     const system = buildSystemPrompt({
-      settings: { businessName: "Leaf Star", tagline: "Wholesale shirts and pants", phone: "919876543210", whatsapp: "919876543210", email: null, address: "Sample address", city: "Sample city", instagram: null },
+      settings: { businessName: "Leaf Star", tagline: "Wholesale shirts and pants", phone: "919876543210", whatsapp: "919876543210", email: null, address: "Sample address", city: "Sample city", instagram: null, facebook: null, establishedYear: null },
       articles: [article("LS-SH-1001", "Oxford Shirt", "shirt", 50), article("LS-PT-2001", "Formal Pant", "pant", 50)],
       faqs: [{ question: "Do you give credit?", answer: "We work with known buyers on credit. The owner will discuss terms with you." }],
       memory: null, focus: null,

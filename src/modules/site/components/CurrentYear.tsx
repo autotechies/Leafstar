@@ -1,9 +1,10 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-/** The year for the footer, filled in by the browser so the page itself can be built ahead of time. */
+const subscribe = () => () => {};
+
+/** The year for the footer, read in the browser so the page itself can be built ahead of time. */
 export function CurrentYear() {
-  const [year, setYear] = useState<number | null>(null);
-  useEffect(() => setYear(new Date().getFullYear()), []);
+  const year = useSyncExternalStore(subscribe, () => new Date().getFullYear(), () => null);
   return <>{year ?? ""}</>;
 }
