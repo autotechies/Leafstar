@@ -66,7 +66,14 @@ export async function extractBill(file: { name: string; type: string; bytes: Buf
     );
     try {
       const parsed = billSchema.safeParse(JSON.parse(result.text));
-      if (parsed.success) return { bill: parsed.data, rawText: text };
+      if (parsed.success) {
+        // A Product ID printed beside the name is kept with the name, so matching and the review screen both see it.
+        const lines = parsed.data.lines.map((l) => {
+          const id = l.product_id.trim();
+          return id && !`${l.raw_text} ${l.name}`.toUpperCase().includes(id.toUpperCase()) ? { ...l, name: `${id} ${l.name}`.trim() } : l;
+        });
+        return { bill: { ...parsed.data, lines }, rawText: text };
+      }
       lastIssue = parsed.error.issues[0]?.message ?? "wrong shape";
     } catch {
       lastIssue = "not JSON";

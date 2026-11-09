@@ -16,7 +16,7 @@ async function Content({ params }: { params: Promise<{ id: string }> }) {
   } catch {
     notFound();
   }
-  return <BillReview bill={data.bill} options={data.options} nextDraftId={data.nextDraftId} />;
+  return <BillReview bill={data.bill} options={data.options} nextDraftId={data.nextDraftId} history={data.history} />;
 }
 
 export default function Page({ params }: { params: Promise<{ id: string }> }) {

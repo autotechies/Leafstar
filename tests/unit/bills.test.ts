@@ -159,3 +159,25 @@ describe("processing one scan job", () => {
     expect(String(jobUpdates.at(-1)?.error)).toMatch(/enter its lines by hand/);
   });
 });
+
+describe("Product ID on a bill line", () => {
+  const answer = (lines: unknown[]) => ({ generate: async () => ({ text: JSON.stringify({ bill_number: "42", lines }), inputTokens: 1, outputTokens: 1 }) }) as GeminiTransport;
+  const file = { name: "x.csv", type: "text/csv", bytes: Buffer.from("Item,Size,Qty\nShirt,S-XXL,1000\n") };
+
+  it("keeps a printed Product ID with the name, so matching and the review screen see it", async () => {
+    const { extractBill } = await import("@/modules/bills/extract");
+    const { bill } = await extractBill(file, "job", answer([{ raw_text: "1 Men's Premium Cotton Shirt (Sizes: S-XXL, Assorted Colours) 1,000 450.00", product_id: "LS-SH-0001", name: "Men's Premium Cotton Shirt", colour: "Assorted Colours", size: "S-XXL", qty: 1000 }]));
+    expect(bill.lines[0].name).toBe("LS-SH-0001 Men's Premium Cotton Shirt");
+    expect(bill.lines[0].size).toBe("S-XXL");
+  });
+  it("does not repeat an ID that is already in the line", async () => {
+    const { extractBill } = await import("@/modules/bills/extract");
+    const { bill } = await extractBill(file, "job", answer([{ raw_text: "LS-SH-0001 Shirt M 10", product_id: "LS-SH-0001", name: "Shirt", size: "M", qty: 10 }]));
+    expect(bill.lines[0].name).toBe("Shirt");
+  });
+  it("leaves lines without an ID alone", async () => {
+    const { extractBill } = await import("@/modules/bills/extract");
+    const { bill } = await extractBill(file, "job", answer([{ raw_text: "Shirt M 10", name: "Shirt", size: "M", qty: 10 }]));
+    expect(bill.lines[0].name).toBe("Shirt");
+  });
+});
