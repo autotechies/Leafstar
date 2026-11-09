@@ -20,7 +20,7 @@ export function LineChart({ labels, series, caption }: { labels: string[]; serie
   const ticks = [0, top / 2, top];
   const show = (i: number) => i === 0 || i === labels.length - 1 || i === Math.floor((labels.length - 1) / 2);
   return (
-    <figure className="flex flex-col gap-2">
+    <figure className="relative flex min-w-0 flex-col gap-2 overflow-hidden">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={caption} className="w-full">
         {ticks.map((t) => (
           <g key={t}>

@@ -65,7 +65,7 @@ test("a correction needs a reason, cannot go below zero, and can be undone once"
   await page.getByRole("status").filter({ hasText: "is now 7" }).getByRole("button", { name: "Undo" }).click();
   await expect.poll(() => stockOf(`${CODE}-NVY-M`)).toBe(10);
   await page.reload({ waitUntil: "networkidle" });
-  const corrections = page.getByRole("row").filter({ hasText: "Damaged in packing" });
+  const corrections = page.getByRole("listitem").filter({ hasText: "Damaged in packing" });
   await expect(corrections.first()).toContainText("undone");
   await expect(corrections.getByRole("button", { name: "Undo" })).toHaveCount(0);
 });

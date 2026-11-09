@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArrowLeft, Eye, EyeOff, Plus, RotateCcw, Trash2, Undo2 } from "lucide-react";
+import { Archive, ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Plus, RotateCcw, Trash2, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -25,7 +25,27 @@ import {
 import type { InvArticle, InvColour, InvVariant, Movement } from "../queries";
 import { visibilityLabel, visibilityOf } from "../status";
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+const istDay = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
+/** Groups newest-first movements under "Today", "Yesterday" or the date, in India time. */
+function groupByDay(movements: Movement[]): Array<{ day: string; label: string; items: Movement[] }> {
+  const now = Date.now();
+  const today = istDay(new Date(now).toISOString());
+  const yesterday = istDay(new Date(now - 86_400_000).toISOString());
+  const groups: Array<{ day: string; label: string; items: Movement[] }> = [];
+  for (const m of movements) {
+    const day = istDay(m.at);
+    let g = groups[groups.length - 1];
+    if (!g || g.day !== day) {
+      const label = day === today ? "Today" : day === yesterday ? "Yesterday" : new Date(m.at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+      g = { day, label, items: [] };
+      groups.push(g);
+    }
+    g.items.push(m);
+  }
+  return groups;
+}
 const reasonLabel: Record<string, string> = { production: "Production", adjustment: "Correction", opening: "Opening stock", return: "Return", sale: "Sold", undo: "Undo", bill: "Bill" };
 
 export function ArticleDetail({ article, movements, brands }: { article: InvArticle; movements: Movement[]; brands: Array<{ id: string; name: string }> }) {
@@ -225,39 +245,44 @@ export function ArticleDetail({ article, movements, brands }: { article: InvArti
         {movements.length === 0 ? (
           <p className="type-small text-fg-muted">No stock changes yet.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="type-small text-fg-muted">
-                  <th scope="col" className="py-2 pr-3 font-semibold">When</th>
-                  <th scope="col" className="px-3 py-2 font-semibold">Item</th>
-                  <th scope="col" className="px-3 py-2 text-right font-semibold">Change</th>
-                  <th scope="col" className="px-3 py-2 font-semibold">What</th>
-                  <th scope="col" className="py-2 pl-3 font-semibold"><span className="sr-only">Undo</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {movements.map((m) => (
-                  <tr key={m.id} className={cx("border-t border-border type-small", m.undone && "text-fg-muted")}>
-                    <td className="py-2 pr-3 whitespace-nowrap">{fmtDate(m.at)}</td>
-                    <td className="px-3 py-2 type-caption">{m.sku}</td>
-                    <td className={cx("px-3 py-2 text-right tabular font-semibold", m.qty < 0 ? "text-danger" : "text-success")}>{m.qty > 0 ? `+${formatNumber(m.qty)}` : formatNumber(m.qty)}</td>
-                    <td className="px-3 py-2">
-                      {reasonLabel[m.reason] ?? m.reason}
-                      {m.note ? ` · ${m.note}` : ""}
-                      {m.batchCode ? ` · ${m.batchCode}` : ""}
-                      {m.billId ? " · from a bill" : ""}
-                      {m.undone ? " · undone" : ""}
-                    </td>
-                    <td className="py-2 pl-3 text-right">
-                      {m.undoable ? (
-                        <Button size="sm" variant="ghost" icon={<Undo2 aria-hidden="true" className="size-icon-sm" />} onClick={() => setUndoing(m)}>Undo</Button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="flex flex-col gap-6">
+            {groupByDay(movements).map((g) => (
+              <section key={g.day} aria-label={g.label} className="flex flex-col gap-3">
+                <h3 className="type-small font-semibold text-fg-muted">{g.label}</h3>
+                <ol className="flex flex-col">
+                  {g.items.map((m, i) => {
+                    const up = m.qty > 0;
+                    return (
+                      <li key={m.id} className={cx("relative flex gap-4", i < g.items.length - 1 && "pb-4")}>
+                        {i < g.items.length - 1 ? <span aria-hidden="true" className="absolute bottom-0 left-3 top-6 border-l border-border" /> : null}
+                        <span aria-hidden="true" className={cx("relative inline-flex size-icon-lg shrink-0 items-center justify-center rounded-full", m.undone ? "bg-surface-2 text-fg-muted" : up ? "bg-success-bg text-success" : "bg-danger-bg text-danger")}>
+                          {up ? <ArrowUp className="size-icon-sm" /> : <ArrowDown className="size-icon-sm" />}
+                        </span>
+                        <div className={cx("flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-4 gap-y-1", m.undone && "text-fg-muted")}>
+                          <div className="flex min-w-0 flex-col gap-1">
+                            <p className="type-small">
+                              <span className={cx("tabular font-bold", m.undone ? "line-through" : up ? "text-success" : "text-danger")}>{up ? `+${formatNumber(m.qty)}` : formatNumber(m.qty)}</span>
+                              <span className="ml-2 font-semibold">{m.sku}</span>
+                            </p>
+                            <p className="type-small text-fg-muted">
+                              {reasonLabel[m.reason] ?? m.reason}
+                              {m.note ? ` · ${m.note}` : ""}
+                              {m.batchCode ? ` · ${m.batchCode}` : ""}
+                              {m.billId ? " · from a bill" : ""}
+                              {m.undone ? " · undone" : ""}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <time dateTime={m.at} className="type-caption text-fg-muted">{fmtTime(m.at)}</time>
+                            {m.undoable ? <Button size="sm" variant="ghost" icon={<Undo2 aria-hidden="true" className="size-icon-sm" />} onClick={() => setUndoing(m)}>Undo</Button> : null}
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </section>
+            ))}
           </div>
         )}
       </Card>

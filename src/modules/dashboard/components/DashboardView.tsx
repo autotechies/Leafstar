@@ -44,6 +44,7 @@ function Panel({ title, href, children, note }: { title: string; href?: string; 
 
 export function DashboardView({ d }: { d: Dashboard }) {
   const a = d.attention;
+  const tidy = d.checks.noPhotos + d.checks.draftBills + d.checks.failedScans + d.checks.hiddenNoStock;
   const aiPct = d.ai.budget > 0 ? Math.min(100, Math.round((d.ai.tokensToday / d.ai.budget) * 100)) : 0;
   return (
     <div className="flex flex-col gap-8">
@@ -60,38 +61,27 @@ export function DashboardView({ d }: { d: Dashboard }) {
         <Attention href="/admin/crm" tone={a.followUps > 0 ? "warning" : "info"} value={a.followUps} label="Follow-ups due" hint="Leads you promised to call" />
       </section>
 
-      <section aria-label="Key numbers" className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <section aria-label="Key numbers" className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi label="Pieces in stock" value={d.kpi.piecesInStock} href="/admin/inventory" />
-        <Kpi label="Articles live on the website" value={d.kpi.liveArticles} href="/admin/inventory?visibility=live" />
         <Kpi label={`Pieces sold, ${d.range} days`} value={d.kpi.sold} href="/admin/bills" />
         <Kpi label={`Pieces made, ${d.range} days`} value={d.kpi.made} href="/admin/stock/add" />
         <Kpi label="Open leads" value={d.kpi.openLeads} href="/admin/crm" />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <Panel title="Stock in and out" href="/admin/inventory" note={`Last ${d.range} days`}>
             {d.flow.every((f) => f.inPieces === 0 && f.outPieces === 0) ? <p className="type-small text-fg-muted">Not enough data yet. Add stock or apply a bill and the lines appear.</p> : (
               <LineChart caption={`Pieces added and taken out of stock each day over ${d.range} days`} labels={d.flow.map((f) => f.day)} series={[{ name: "Added", tone: "series-1", values: d.flow.map((f) => f.inPieces) }, { name: "Taken out", tone: "series-2", values: d.flow.map((f) => f.outPieces) }]} />
             )}
           </Panel>
         </div>
-        <Panel title="Stock by article" href="/admin/inventory" note="Top 8"><BarList items={d.byArticle} empty="Not enough data yet. Add stock to see your articles here." /></Panel>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Panel title="Size spread" href="/admin/inventory"><BarList items={d.sizes} empty="Not enough data yet." /></Panel>
-        <Panel title="Colour spread" href="/admin/inventory"><BarList items={d.colours} tone="series-2" empty="Not enough data yet." /></Panel>
-        <Panel title="Shirts and pants" href="/admin/inventory"><BarList items={d.categories} empty="Not enough data yet." /></Panel>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Restock first" note="Selling and running out">
           {d.restock.length === 0 ? <p className="type-small text-fg-muted">Nothing urgent, or not enough sales yet. This list fills as bills are applied.</p> : (
             <ul className="flex flex-col gap-2">
-              {d.restock.map((r) => (
+              {d.restock.slice(0, 6).map((r) => (
                 <li key={r.sku}>
-                  <Link href={`/admin/search?q=${encodeURIComponent(r.sku)}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md px-1 py-1 type-small hover:bg-surface-2 focus-ring">
+                  <Link href={`/admin/search?q=${encodeURIComponent(r.sku)}`} className="flex flex-col gap-1 rounded-md px-1 py-1 type-small hover:bg-surface-2 focus-ring">
                     <span className="font-semibold">{r.sku}</span>
                     <span className="text-fg-muted"><span className="tabular">{formatNumber(r.stock)}</span> left · sold <span className="tabular">{formatNumber(r.sold)}</span>{r.daysLeft !== null ? ` · about ${r.daysLeft} days` : ""}</span>
                   </Link>
@@ -100,6 +90,9 @@ export function DashboardView({ d }: { d: Dashboard }) {
             </ul>
           )}
         </Panel>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Demand vs stock" href="/admin/crm" note="Open leads">
           {d.demand.length === 0 ? <p className="type-small text-fg-muted">Not enough data yet. When buyers ask for pieces, you see them next to your stock here.</p> : (
             <ul className="flex flex-col gap-2">
@@ -114,50 +107,65 @@ export function DashboardView({ d }: { d: Dashboard }) {
             </ul>
           )}
         </Panel>
+        <Panel title="Stock by article" href="/admin/inventory" note="Top 8"><BarList items={d.byArticle} empty="Not enough data yet. Add stock to see your articles here." /></Panel>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Slow movers" note={`Nothing sold in ${d.range} days`}>
-          {d.slow.length === 0 ? <p className="type-small text-fg-muted">Nothing is sitting still, or no sales are recorded yet.</p> : (
-            <ul className="flex flex-col gap-2">
-              {d.slow.map((r) => (
-                <li key={r.code}><Link href={`/admin/inventory/${r.code}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md px-1 py-1 type-small hover:bg-surface-2 focus-ring"><span className="font-semibold">{r.name}<span className="ml-2 font-normal text-fg-muted">{r.code}</span></span><span className="tabular text-fg-muted">{formatNumber(r.stock)} pcs</span></Link></li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-        <Panel title="Recent stock movements">
-          {d.recent.length === 0 ? <p className="type-small text-fg-muted">No movements yet.</p> : (
-            <ul className="flex flex-col gap-2">
-              {d.recent.map((m) => (
-                <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 type-small">
-                  <span><span className="tabular font-semibold">{m.qty > 0 ? `+${m.qty}` : m.qty}</span> · {m.sku} · {m.reason}</span>
-                  <span className="text-fg-muted">{when(m.at)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Data check">
-          <ul className="flex flex-col gap-2 type-small">
-            <li className="flex justify-between gap-3"><Link href="/admin/inventory" className="rounded-sm hover:underline focus-ring">Articles without photos</Link><span className="tabular font-semibold">{d.checks.noPhotos}</span></li>
-            <li className="flex justify-between gap-3"><Link href="/admin/bills" className="rounded-sm hover:underline focus-ring">Bills waiting for your review</Link><span className="tabular font-semibold">{d.checks.draftBills}</span></li>
-            <li className="flex justify-between gap-3"><Link href="/admin/bills/scan" className="rounded-sm hover:underline focus-ring">Bills that could not be read</Link><span className="tabular font-semibold">{d.checks.failedScans}</span></li>
-            <li className="flex justify-between gap-3"><Link href="/admin/inventory?visibility=hidden" className="rounded-sm hover:underline focus-ring">Published articles hidden for no stock</Link><span className="tabular font-semibold">{d.checks.hiddenNoStock}</span></li>
+      {tidy > 0 ? (
+        <Card className="flex flex-col gap-3">
+          <h2 className="type-h4">To tidy up</h2>
+          <ul className="flex flex-wrap gap-x-6 gap-y-2 type-small">
+            {d.checks.draftBills > 0 ? <li><Link href="/admin/bills" className="rounded-sm underline focus-ring">{d.checks.draftBills} {d.checks.draftBills === 1 ? "bill is" : "bills are"} waiting for your review</Link></li> : null}
+            {d.checks.failedScans > 0 ? <li><Link href="/admin/bills/scan" className="rounded-sm underline focus-ring">{d.checks.failedScans} {d.checks.failedScans === 1 ? "bill" : "bills"} could not be read</Link></li> : null}
+            {d.checks.noPhotos > 0 ? <li><Link href="/admin/inventory" className="rounded-sm underline focus-ring">{d.checks.noPhotos} {d.checks.noPhotos === 1 ? "article has" : "articles have"} no photos</Link></li> : null}
+            {d.checks.hiddenNoStock > 0 ? <li><Link href="/admin/inventory?visibility=hidden" className="rounded-sm underline focus-ring">{d.checks.hiddenNoStock} published {d.checks.hiddenNoStock === 1 ? "article is" : "articles are"} hidden for no stock</Link></li> : null}
           </ul>
-        </Panel>
-        <Panel title="AI use today" href="/admin/settings">
-          {d.ai.budget === 0 ? <p className="type-small text-fg-muted">No daily limit set.</p> : (
-            <div className="flex flex-col gap-2">
-              <p className="type-small"><span className="tabular font-semibold">{formatNumber(d.ai.tokensToday)}</span> of <span className="tabular">{formatNumber(d.ai.budget)}</span> tokens ({aiPct}%){d.ai.paused ? " · AI is paused" : ""}</p>
-              <progress className="h-3 w-full overflow-hidden rounded-full" value={d.ai.tokensToday} max={d.ai.budget} aria-label="AI tokens used today" />
-            </div>
-          )}
-        </Panel>
-      </div>
+        </Card>
+      ) : null}
+
+      <details className="group rounded-lg border border-border bg-surface">
+        <summary className="flex min-h-control cursor-pointer items-center justify-between gap-3 rounded-lg px-4 py-3 type-h4 focus-ring">
+          More insights
+          <span className="type-caption font-normal text-fg-muted">Size and colour spread, slow movers, recent movements, AI use</span>
+        </summary>
+        <div className="flex flex-col gap-6 border-t border-border p-4 md:p-6">
+          <div className="grid gap-6 lg:grid-cols-3">
+            <Panel title="Size spread" href="/admin/inventory"><BarList items={d.sizes} empty="Not enough data yet." /></Panel>
+            <Panel title="Colour spread" href="/admin/inventory"><BarList items={d.colours} tone="series-2" empty="Not enough data yet." /></Panel>
+            <Panel title="Shirts and pants" href="/admin/inventory"><BarList items={d.categories} empty="Not enough data yet." /></Panel>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Panel title="Slow movers" note={`Nothing sold in ${d.range} days`}>
+              {d.slow.length === 0 ? <p className="type-small text-fg-muted">Nothing is sitting still, or no sales are recorded yet.</p> : (
+                <ul className="flex flex-col gap-2">
+                  {d.slow.map((r) => (
+                    <li key={r.code}><Link href={`/admin/inventory/${r.code}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md px-1 py-1 type-small hover:bg-surface-2 focus-ring"><span className="font-semibold">{r.name}<span className="ml-2 font-normal text-fg-muted">{r.code}</span></span><span className="tabular text-fg-muted">{formatNumber(r.stock)} pcs</span></Link></li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+            <Panel title="Recent stock movements">
+              {d.recent.length === 0 ? <p className="type-small text-fg-muted">No movements yet.</p> : (
+                <ul className="flex flex-col gap-2">
+                  {d.recent.map((m) => (
+                    <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 type-small">
+                      <span><span className="tabular font-semibold">{m.qty > 0 ? `+${m.qty}` : m.qty}</span> · {m.sku} · {m.reason}</span>
+                      <span className="text-fg-muted">{when(m.at)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Panel>
+          </div>
+          <Panel title="AI use today" href="/admin/settings">
+            {d.ai.budget === 0 ? <p className="type-small text-fg-muted">No daily limit set.</p> : (
+              <div className="flex flex-col gap-2">
+                <p className="type-small"><span className="tabular font-semibold">{formatNumber(d.ai.tokensToday)}</span> of <span className="tabular">{formatNumber(d.ai.budget)}</span> tokens ({aiPct}%){d.ai.paused ? " · AI is paused" : ""}</p>
+                <progress className="h-3 w-full overflow-hidden rounded-full" value={d.ai.tokensToday} max={d.ai.budget} aria-label="AI tokens used today" />
+              </div>
+            )}
+          </Panel>
+        </div>
+      </details>
     </div>
   );
 }
