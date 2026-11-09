@@ -149,8 +149,8 @@ export function AssistantLauncher({ newCount }: { newCount: number }) {
                           <ul className="flex list-disc flex-col gap-1 pl-4 type-small">{s.lines.map((l) => <li key={l}>{l}</li>)}</ul>
                           {s.items.length > 0 ? (
                             <ul className="flex flex-col gap-1 border-t border-border pt-2 type-caption text-fg-muted">
-                              {s.items.map((i) => (
-                                <li key={i.text} className="truncate">{i.href ? <Link href={i.href} onClick={() => setOpen(false)} className="rounded-sm hover:underline focus-ring">{i.text}</Link> : i.text}</li>
+                              {s.items.map((i, n) => (
+                                <li key={`${n}-${i.text}`} className="truncate">{i.href ? <Link href={i.href} onClick={() => setOpen(false)} className="rounded-sm hover:underline focus-ring">{i.text}</Link> : i.text}</li>
                               ))}
                             </ul>
                           ) : null}
