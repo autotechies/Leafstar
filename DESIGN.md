@@ -131,14 +131,14 @@ Navbar (all pages): height 72 desktop / 64 phone, `chrome`. Left: logo. Centre (
 
 Footer: `chrome` background (in dark mode with a top `chrome-line`). A trust strip across the top (Since {year started}, our own factory, across India, Peenya Bengaluru; only facts the owner confirmed). Below it four columns on desktop, two on a tablet, stacked on a phone: brand, tagline and Instagram/Facebook icons; Explore links; Contact (address, email, phone and WhatsApp when set); "Find us" with a small map. The map box is one link: clicking anywhere on it opens the place in Google Maps; the map inside is a picture only (not focusable). Everything is read from Settings (`public_settings`), so the owner edits it in one place; a detail left empty is not shown. A small line with the business name and year at the bottom; Privacy link in Explore.
 
-**Home** (sections in this order; all use the rhythm in section 4)
-1. *Hero* on `chrome`: eyebrow, display headline, body-lg paragraph, two buttons (Browse catalog primary lg, Request price secondary lg), three tick points. Right side (desktop) a large 4:5 photo (radius `xl`) with a small second photo overlapping and a floating article chip. On phone the photo sits below the text, full width. Real photography only; until supplied, a labelled placeholder.
-2. *Trust bar*: overlaps the hero's bottom edge by 48px; a Card with four numbers (Playfair, `gold-text`) and captions; 2×2 on phone. Real numbers only.
-3. *Shop by category*: eyebrow, h2, two large tiles (Shirts, Pants with "Cargo · Jeans · Formal"), photo with a bottom fade, arrow button. Stacked on phone.
-4. *Featured articles*: h2 and a row of product cards (4 on desktop, horizontal snap-scroll on phone), "View full catalog" link.
-5. *About us in brief*: h2 and three cards (trust and integrity; partnership and professionalism; better service), each with a Lucide icon in a `surface-2` circle, h3 and two lines.
-6. *Proof of work*: a photo/video mosaic (factory, workers, machinery) beside a numbered step strip "How a deal closes" (Enquiry → Samples/quote → Order → Production → Dispatch, wording supplied by the owner). Videos load on tap.
-7. *Contact call to action*: `chrome` band with h2, phone, WhatsApp and Request price buttons.
+**Home** (sections in this order; all use the rhythm in section 4). Photos are real files in `public/site`, made by `scripts/prepare-site-photos.mjs` and listed in `src/modules/site/photos.ts`, where each carries `standIn: true` until it is a photo of Leaf Star itself. The page uses no empty placeholders.
+1. *Hero* on `chrome`: eyebrow, display headline ("Made in our factory. Ready for your shelves."), body-lg paragraph, two buttons (Browse the catalog primary lg, Talk to us on-chrome lg), three tick points. Right side (desktop) a 4:5 photo (radius `xl`) with a gold outline offset behind it; below the text on a phone.
+2. *Facts card*: overlaps the hero's bottom edge by 48px; Since {year started from Settings}, our own factory, wholesale lots, across India. Only facts the owner confirmed.
+3. *What we make*: eyebrow, h2, two photo tiles (Shirts, Pants), each with a navy caption bar and arrow; 4:5 on phone, 4:3 from tablet.
+4. *Ready to ship*: h2, one line, a row of product cards (4 on desktop, horizontal snap-scroll on phone), "View the full catalog" button.
+5. *Made in our factory* on `chrome`: h2 "We make what we sell", three points (cut, stitched, packed here), "See how we make it" button; beside it a three-photo mosaic (factory floor wide, machinery and cutting square).
+6. *How a deal closes*: five numbered step cards, then "Start an enquiry" and "Read more about how we work". The site-wide closing band (TrustBand) follows on every page.
+
 
 **Catalog** `/catalog`: h1, result count, search field, filter chips row (category, style, fabric, pattern, colour, size, brand) and sort. Desktop: filters in a left column (264px) with the grid at 3 columns (4 at 1440); tablet: filters in a drawer, 3 columns; phone: a sticky Filters button, **2-column grid**. Product card layout (all widths): 4:5 image; below it swatches (up to 8 and "+N"), name (h3), code (caption `gold-text`), chips (fabric, pattern), availability badge, "Min. N pcs", then buttons **Request price** (primary md) and **Inquire with AI** (secondary md); a plus icon button on the image's top right adds to the enquiry list (toggles to a check). On a 2-column phone card the two buttons stack full width. The phone card must be checked on a real 375px screen in Step 6; if cramped, the Inquire button becomes an icon-plus-label row under the primary.
 
@@ -152,7 +152,7 @@ Footer: `chrome` background (in dark mode with a top `chrome-line`). A trust str
 
 **Chat widget**: floating 56px gold circle bottom-right (above the phone's safe area), with `shadow-2`; opens a panel 380×560 on desktop, full screen on phone. Header (logo mark, "Leaf Star assistant", close), messages (visitor right on `surface-2`, assistant left on `surface`), typing indicator, input with send button, privacy notice and Accept on first open, "Forget me" in the menu. Failure state: the WhatsApp fallback message.
 
-**About**: h1; story section (text left, photo right); factory, workers, machinery as alternating photo/text rows; quality and production process as a step timeline; "from enquiry to delivery" strip; video block (loads on tap); CTA band.
+**About**: same rhythm as Home. A `chrome` opening (h1, intro, two buttons, 16:9 factory photo with the gold outline); story (text left, cutting-table photo right); factory, people and machines as alternating photo/text rows on `surface-2`; "What you can count on" three cards; fabric-to-lot process timeline on `surface-2`; "from enquiry to delivery" strip with two buttons. Sections alternate plain and `surface-2` so no two neighbours share a background. There is no video block until the owner has a video.
 **Contact**: two columns: details (phone, WhatsApp, email, address, Instagram, map link) and the form; stacked on phone.
 **Privacy / 404 / error**: simple text page at reading width 720; 404 has the logo, a friendly line and Catalog and Home buttons.
 

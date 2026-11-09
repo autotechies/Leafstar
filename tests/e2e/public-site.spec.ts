@@ -111,7 +111,7 @@ test("the call sheet logs a tap and takes a callback request", async ({ page }) 
   await dialog.getByLabel("Your name").fill("Asha");
   await dialog.getByLabel("Phone number").fill("9822233344");
   await dialog.getByRole("button", { name: "Request a callback" }).click();
-  await expect(dialog.getByText("We will call you back")).toBeVisible();
+  await expect(dialog.getByText("Thank you. We will call you back.")).toBeVisible();
   expect(await sql(`select 1 from inbox_items where phone = '919822233344' and kind = 'callback_request'`)).toHaveLength(1);
 });
 

@@ -11,11 +11,11 @@ export const nav = [
   { href: "/contact", label: "Contact" },
 ] as const;
 
+/** Only facts the owner has confirmed: own factory, wholesale lots with a minimum, delivery across India. "Since {year}" is added from Settings. */
 export const trustFacts = [
-  { title: "Made in our factory", caption: "Every lot is produced in-house" },
-  { title: "Wholesale lots", caption: "A minimum order on every article" },
-  { title: "Credit for regular buyers", caption: "Terms agreed with you directly" },
-  { title: "GST registered", caption: "Proper tax invoices on every order" },
+  { title: "Our own factory", caption: "Every lot is made in-house" },
+  { title: "Wholesale lots", caption: "A clear minimum on every article" },
+  { title: "Across India", caption: "We deliver to retailers nationwide" },
 ] as const;
 
 export const pillars = [
