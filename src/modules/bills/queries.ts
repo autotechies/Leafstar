@@ -85,21 +85,7 @@ export async function loadQueue(): Promise<ScanJobRow[]> {
   });
 }
 
-/** Pieces of each colour and size this buyer was sent on earlier APPLIED bills (used to suggest how an assorted line splits). */
-async function loadBuyerHistory(supabase: Awaited<ReturnType<typeof supabaseServer>>, billId: string, buyer: string | null): Promise<Record<string, number>> {
-  const name = buyer?.trim();
-  if (!name) return {};
-  const pattern = name.replace(/[\\%_]/g, (c) => `\\${c}`);
-  const { data: past } = await supabase.from("bills").select("id").eq("status", "applied").ilike("buyer_name_raw", pattern).neq("id", billId).limit(50);
-  const ids = (past ?? []).map((b) => b.id);
-  if (ids.length === 0) return {};
-  const { data: items } = await supabase.from("bill_items").select("variant_id, qty").in("bill_id", ids).not("variant_id", "is", null).limit(5000);
-  const out: Record<string, number> = {};
-  for (const i of items ?? []) if (i.variant_id) out[i.variant_id] = (out[i.variant_id] ?? 0) + i.qty;
-  return out;
-}
-
-export async function loadBill(id: string): Promise<{ bill: BillDraft; options: VariantOption[]; nextDraftId: string | null; history: Record<string, number> }> {
+export async function loadBill(id: string): Promise<{ bill: BillDraft; options: VariantOption[]; nextDraftId: string | null }> {
   await requireStaff(undefined, `/admin/bills/review/${id}`);
   const supabase = await supabaseServer();
   const { data: bill } = await supabase.from("bills").select("*").eq("id", id).maybeSingle();
@@ -110,7 +96,6 @@ export async function loadBill(id: string): Promise<{ bill: BillDraft; options: 
     loadVariantOptions(),
     supabase.from("bills").select("id").eq("status", "draft").neq("id", id).order("created_at").limit(1),
   ]);
-  const history = bill.status === "draft" ? await loadBuyerHistory(supabase, id, bill.buyer_name_raw) : {};
   const path = job?.file_path ?? bill.file_path;
   const signed = path ? await supabase.storage.from("bills").createSignedUrl(path, 3600) : null;
 
@@ -156,7 +141,6 @@ export async function loadBill(id: string): Promise<{ bill: BillDraft; options: 
     },
     options,
     nextDraftId: drafts?.[0]?.id ?? null,
-    history,
   };
 }
 

@@ -97,6 +97,11 @@ Every claim, number and certification must be **true and supplied by the owner**
 - **Quality is a deliverable:** before Step 8 is done, write ~50 realistic buyer questions (MOQ, colours, sizes, delivery, credit, customisation, price traps, "ignore your rules" attacks, hidden-brand probes), run them, fix failures, and show every question with its answer and pass/fail. `/admin/chats` lets the owner read transcripts, flag bad answers, add notes, and see the unanswered-question list.
 - **Image input is the LAST thing built (Step 14, after launch is stable):** a buyer may attach one photo of a style they want; Gemini describes it and the bot suggests the closest catalog articles ("similar to", never "exact match"). Rules: JPG/PNG/WEBP, ≤ 5 MB, one per message, EXIF stripped, not kept beyond 30 days, counts toward the AI budget, rate limited, same no-price/no-hidden-brand rules, and a clear failure message if the image can't be read.
 
+### 9b. Owner assistant (admin) — rules
+- It is a different assistant from the public one. Never give it to visitors, and never give the public chatbot admin data. The two share no prompt, no data and no code except the plain-text renderer.
+- Read-only. It answers only from the live snapshot (`context.ts`) and the hand-written app guide (`guide.ts`). **When a screen or a rule of the app changes, update `guide.ts` in the same change.**
+- The "Since last visit" briefing is counted in SQL, not written by AI, so it is always right.
+
 ## 10. Bulk bill scanning (core feature — must be excellent)
 Flow: **Upload many → queue → Extract → Match → Review/edit → Apply → 15-second Undo.**
 1. Upload any number of bills at once (target: dozens). Accept photos (JPG/PNG/WEBP/HEIC), PDF, Word **.docx** (`mammoth`), Excel **.xlsx**/CSV (`exceljs`). Old binary **.doc/.xls** are not readable by these libraries: reject them with a clear message ("Save as .docx/.xlsx and upload again"). Step 7 re-checks this against the owner's real sample bills. English only. Owner only. Files upload directly to the private `bills` bucket (signed upload URLs); compute SHA-256 and warn/block when an applied bill has the same hash.

@@ -28,6 +28,8 @@ export interface LeadDetail extends LeadCard {
   contactId: string | null;
   items: LeadItemRow[];
   activities: ActivityRow[];
+  /** The latest messages from the website assistant when this person chatted with the same phone number. */
+  chat: { visitorId: string; visits: number; messages: Array<{ id: string; role: "user" | "assistant"; content: string; createdAt: string }> } | null;
 }
 
 export interface BuyerRow {

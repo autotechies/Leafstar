@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { expectToast, hasStack, logIn, sql } from "./helpers";
 
 /*
-  An assorted bill line ("Sizes S-XXL, Assorted Colours") cannot say which pieces to deduct. The review screen suggests a
-  split from current stock; the owner confirms it, and only then are ordinary colour-and-size lines saved.
+  An assorted bill line ("Sizes S-XXL, Assorted Colours") cannot say which pieces to deduct. The owner splits it by hand with
+  "Split this line"; a summary under the lines shows what was chosen and whether it adds up to the bill.
 */
 
 test.skip(!hasStack, "needs the local Supabase stack (run through scripts/e2e.mjs with DATABASE_URL)");
@@ -30,31 +30,35 @@ test.beforeAll(async () => {
   );
 });
 
-test("an assorted line gets a suggested split from stock; accepting it saves ordinary lines that add up", async ({ page }) => {
+test("an assorted line is split by hand and a summary shows what was chosen", async ({ page }) => {
   await logIn(page);
   await expect(page).toHaveURL(/\/admin$/);
   await page.goto(`admin/bills/review/${billId}`, { waitUntil: "networkidle" });
-  const box = page.getByText("Suggested split of 300 pieces").locator("..");
-  await expect(box).toBeVisible();
-  await expect(box).toContainText("Based on what we hold now");
-  await box.getByRole("button", { name: "Use this split" }).click();
-
-  // One line per colour and size, each a normal matched line the owner can still edit.
+  // No automatic suggestion: the owner chooses.
   await expect(page.getByText("Suggested split")).toHaveCount(0);
-  await expect(page.getByLabel("Pieces")).toHaveCount(15);
+  await expect(page.getByText(/does not name one colour and size/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: /What you chose for/ })).toHaveCount(0);
+
+  await page.getByLabel("Article").nth(0).selectOption({ index: 1 });
+  await page.getByLabel("Pieces").nth(0).fill("100");
+  await page.getByRole("button", { name: "Split this line" }).first().click();
+  await page.getByLabel("Article").nth(1).selectOption({ index: 6 });
+  await page.getByLabel("Pieces").nth(1).fill("120");
+  await page.getByRole("button", { name: "Split this line" }).first().click();
+  await page.getByLabel("Article").nth(1).selectOption({ index: 11 });
+
+  const summary = page.getByRole("region", { name: "Split summary for LS-SH-0077" }).or(page.locator('[aria-label="Split summary for LS-SH-0077"]'));
+  await expect(summary).toContainText("What you chose for LS-SH-0077");
+  await expect(summary.getByRole("status")).toContainText("220 of 300 pieces placed. 80 still to place.");
+  await page.getByLabel("Pieces").nth(1).fill("80");
+  await expect(summary.getByRole("status")).toContainText("All 300 pieces on the bill are placed.");
+  await expect(summary.getByRole("row")).toHaveCount(4); // header + 3 chosen lines
+  await expect(summary).toContainText("Navy");
+
   await page.getByRole("button", { name: "Save draft" }).click();
   await expectToast(page, "Draft saved.");
-
-  const rows = await sql<{ qty: number; sku: string; method: string }>(
-    `select i.qty, v.sku, i.match_method as method from bill_items i join variants v on v.id = i.variant_id where i.bill_id = $1 order by v.sku`,
-    [billId],
-  );
-  expect(rows).toHaveLength(15);
-  expect(rows.reduce((s, r) => s + r.qty, 0)).toBe(300);
-  expect(rows.every((r) => r.method === "manual")).toBe(true);
-  // Proportional to stock (Navy 300 : Sky 200 : Grey 100 of 600), never above what is held.
-  const by = (colour: string) => rows.filter((r) => r.sku.includes(`-${colour}-`)).reduce((s, r) => s + r.qty, 0);
-  expect([by("NVY"), by("SKY"), by("GRY")]).toEqual([150, 100, 50]);
-  // Nothing was deducted: only Deduct stock does that.
+  const rows = await sql<{ qty: number }>(`select qty from bill_items where bill_id = $1 and variant_id is not null`, [billId]);
+  expect(rows).toHaveLength(3);
+  expect(rows.reduce((n, r) => n + r.qty, 0)).toBe(300);
   expect((await sql<{ n: number }>(`select coalesce(sum(stock),0)::int as n from variants where sku like '${CODE}-%'`))[0].n).toBe(600);
 });

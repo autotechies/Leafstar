@@ -14,7 +14,7 @@ async function Content() {
 export default function Page() {
   return (
     <>
-      <PageHeader title="Chats" description="What visitors asked the website assistant, questions it could not answer, and the answers you teach it." />
+      <PageHeader title="Chats" description="Each visitor once, with every chat they had. Also the questions it could not answer, and the answers you teach it." />
       <Suspense fallback={<Skeleton className="h-96 w-full" rounded="lg" />}>
         <Content />
       </Suspense>

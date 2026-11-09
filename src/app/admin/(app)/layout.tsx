@@ -1,7 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { AdminShell } from "@/modules/admin-shell/AdminShell";
-import { InboxBadgeLoader, UserMenuLoader } from "@/modules/admin-shell/loaders";
+import { AssistantLoader, InboxBadgeLoader, UserMenuLoader } from "@/modules/admin-shell/loaders";
 import { requireStaff } from "@/modules/auth/session";
 
 export const metadata: Metadata = {
@@ -24,6 +24,11 @@ export default function AdminAppLayout({ children }: { children: ReactNode }) {
       userMenu={
         <Suspense fallback={<div className="skeleton size-control rounded-full" aria-hidden="true" />}>
           <UserMenuLoader />
+        </Suspense>
+      }
+      assistant={
+        <Suspense fallback={null}>
+          <AssistantLoader />
         </Suspense>
       }
       inboxBadge={

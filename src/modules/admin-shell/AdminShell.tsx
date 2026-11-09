@@ -62,7 +62,7 @@ function SidebarBody({ inboxBadge, onNavigate }: { inboxBadge?: ReactNode; onNav
   );
 }
 
-export function AdminShell({ children, userMenu, inboxBadge }: { children: ReactNode; userMenu: ReactNode; inboxBadge?: ReactNode }) {
+export function AdminShell({ children, userMenu, inboxBadge, assistant }: { children: ReactNode; userMenu: ReactNode; inboxBadge?: ReactNode; assistant?: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { ref, onBackdropClick } = useNativeDialog(menuOpen, () => setMenuOpen(false));
 
@@ -121,6 +121,7 @@ export function AdminShell({ children, userMenu, inboxBadge }: { children: React
           {children}
         </main>
       </div>
+      {assistant}
     </div>
   );
 }

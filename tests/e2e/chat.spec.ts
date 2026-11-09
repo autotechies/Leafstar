@@ -56,8 +56,10 @@ test("Forget me deletes the visitor and their chats", async ({ page }) => {
   const id = await page.evaluate(() => window.localStorage.getItem("ls-visitor-v1"));
   expect(id).toBeTruthy();
   expect(await sql(`select 1 from visitors where id = $1`, [id])).toHaveLength(1);
-  await panel.getByRole("button", { name: "Forget me" }).click();
-  await expect(panel.getByRole("status")).toContainText("deleted");
+  await panel.getByRole("button", { name: "Privacy and your data" }).click();
+  const privacy = page.getByRole("dialog", { name: "Privacy and your data" });
+  await privacy.getByRole("button", { name: "Forget me" }).click();
+  await expect(privacy.getByRole("status")).toContainText("deleted");
   expect(await sql(`select 1 from visitors where id = $1`, [id])).toHaveLength(0);
   expect(await sql(`select 1 from chat_messages where visitor_id = $1`, [id])).toHaveLength(0);
 });

@@ -48,7 +48,17 @@ export async function loadLeadDetail(id: string): Promise<LeadDetail | null> {
   const activities: ActivityRow[] = (acts ?? []).map((a) => ({ id: a.id, kind: a.kind, body: a.body, createdAt: a.created_at }));
   const card = toCard(lead as unknown as LeadRow, itemRows.length);
   const extra = lead as unknown as { instagram: string | null; message: string | null; lost_reason: string | null; contact_id: string | null };
-  return { ...card, instagram: extra.instagram, message: extra.message, lostReason: extra.lost_reason, contactId: extra.contact_id, items: itemRows, activities };
+  // The same person's chats with the website assistant, matched by phone number.
+  let chat: LeadDetail["chat"] = null;
+  const { data: visitor } = await supabase.from("visitors").select("id").eq("phone", lead.phone).order("last_seen", { ascending: false }).limit(1).maybeSingle();
+  if (visitor) {
+    const [{ data: msgs }, { count }] = await Promise.all([
+      supabase.from("chat_messages").select("id, role, content, created_at").eq("visitor_id", visitor.id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("chat_sessions").select("id", { count: "exact", head: true }).eq("visitor_id", visitor.id),
+    ]);
+    if ((msgs ?? []).length > 0) chat = { visitorId: visitor.id, visits: count ?? 1, messages: (msgs ?? []).reverse().map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: m.content, createdAt: m.created_at })) };
+  }
+  return { ...card, chat, instagram: extra.instagram, message: extra.message, lostReason: extra.lost_reason, contactId: extra.contact_id, items: itemRows, activities };
 }
 
 export async function loadBuyers(): Promise<BuyerRow[]> {

@@ -6,10 +6,10 @@ import Link from "next/link";
 import { ImagePlus, MessageCircle, Send, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Checkbox, TextInput } from "@/components/ui/Field";
-import { Drawer } from "@/components/ui/Modal";
+import { Drawer, Modal } from "@/components/ui/Modal";
 import { cx } from "@/lib/cx";
 import type { ChatProduct } from "../cards";
-import { formatReply } from "../format";
+import { ChatText } from "./ChatText";
 import { whatsappLink } from "@/modules/site/links";
 
 /*
@@ -64,25 +64,6 @@ function visitorId(): string {
 const GREETING = "Hi, I'm Leaf Star. I can show you our shirts and pants, and explain minimum lots and how ordering works. For prices, the owner will call you personally.";
 const START_CHIPS = ["Show me shirts", "Show me pants", "Minimum order", "How do I order?"];
 
-/** The assistant's words: short paragraphs and bullet lists, with bold. Built as elements, never as HTML. */
-function ChatText({ text }: { text: string }) {
-  return (
-    <div className="flex flex-col gap-2">
-      {formatReply(text).map((b, i) =>
-        b.kind === "p" ? (
-          <p key={i}>{b.parts.map((x, j) => (x.bold ? <strong key={j}>{x.text}</strong> : <span key={j}>{x.text}</span>))}</p>
-        ) : (
-          <ul key={i} className="flex list-disc flex-col gap-1 pl-4">
-            {b.items.map((item, k) => (
-              <li key={k}>{item.map((x, j) => (x.bold ? <strong key={j}>{x.text}</strong> : <span key={j}>{x.text}</span>))}</li>
-            ))}
-          </ul>
-        ),
-      )}
-    </div>
-  );
-}
-
 /** One article under a reply: photo, name, code, colour dots, sizes, minimum order, and a link to its page. */
 function ProductCard({ p, similar, onOpen }: { p: ChatProduct; similar: boolean; onOpen: () => void }) {
   return (
@@ -127,6 +108,7 @@ export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
   const sessionId = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement | null>(null);
   const [forgotten, setForgotten] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(false);
 
   const openPanel = useCallback((code: string | null) => {
     setArticleCode(code);
@@ -242,6 +224,10 @@ export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
               <TextInput label="Your message" hideLabel placeholder="Type your question" value={draft} maxLength={800} onChange={(e) => setDraft(e.target.value)} />
             </div>
             <Button type="submit" iconOnly aria-label="Send message" loading={busy} disabled={!draft.trim() && !photo} icon={<Send aria-hidden="true" className="size-icon" />} />
+            <p className="flex w-full flex-wrap items-center justify-between gap-x-4 type-caption text-fg-muted">
+              {wa ? <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-control items-center rounded-sm font-semibold underline focus-ring">Prefer WhatsApp?</a> : <span />}
+              <button type="button" onClick={() => setPrivacyOpen(true)} className="inline-flex min-h-control items-center rounded-sm underline focus-ring">Privacy and your data</button>
+            </p>
           </form>
         }
       >
@@ -277,21 +263,24 @@ export function ChatWidget({ whatsapp }: { whatsapp: string | null }) {
             {busy ? <li className="self-start rounded-lg bg-surface-2 px-4 py-3 type-small text-fg-muted" role="status">Leaf Star is typing…</li> : null}
           </ul>
           <div ref={endRef} />
-          <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-            <Checkbox
-              label="Remember my details next time"
-              checked={remember}
-              onChange={(e) => { setRemember(e.target.checked); writeStore(REMEMBER_KEY, e.target.checked ? "1" : "0"); }}
-            />
-            <p className="type-caption text-fg-muted">Off by default. If you tick this, we keep what you tell us (like your name and what you sell) to help you faster. You can delete it any time.</p>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="ghost" icon={<Trash2 aria-hidden="true" className="size-icon-sm" />} onClick={() => void forget()}>Forget me</Button>
-              {wa ? <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-control items-center rounded-sm type-small font-bold text-gold-text underline focus-ring">Chat on WhatsApp instead</a> : null}
-            </div>
+        </div>
+      </Drawer>
+
+      <Modal open={privacyOpen} onClose={() => setPrivacyOpen(false)} title="Privacy and your data" description="You are in control of what we keep.">
+        <div className="flex flex-col gap-4">
+          <Checkbox
+            label="Remember my details next time"
+            checked={remember}
+            onChange={(e) => { setRemember(e.target.checked); writeStore(REMEMBER_KEY, e.target.checked ? "1" : "0"); }}
+          />
+          <p className="type-small text-fg-muted">Off by default. If you tick this, we keep what you tell us (like your name and what you sell) to help you faster.</p>
+          <div className="flex flex-col items-start gap-2 border-t border-border pt-4">
+            <p className="type-small text-fg-muted">Want everything we stored about you removed, including your chats?</p>
+            <Button size="sm" variant="secondary" icon={<Trash2 aria-hidden="true" className="size-icon-sm" />} onClick={() => void forget()}>Forget me</Button>
             {forgotten ? <p role="status" className="type-small text-success">Done. Everything we stored about you was deleted.</p> : null}
           </div>
         </div>
-      </Drawer>
+      </Modal>
     </>
   );
 }

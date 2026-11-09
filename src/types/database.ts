@@ -1076,6 +1076,7 @@ export type Database = {
           full_name: string | null;
           id: string;
           is_active: boolean;
+          last_briefed_at: string | null;
           role: Database["public"]["Enums"]["app_role"];
         };
         ComputedFields: never;
@@ -1084,6 +1085,7 @@ export type Database = {
           full_name?: string | null;
           id: string;
           is_active?: boolean;
+          last_briefed_at?: string | null;
           role: Database["public"]["Enums"]["app_role"];
         };
         Update: {
@@ -1091,6 +1093,7 @@ export type Database = {
           full_name?: string | null;
           id?: string;
           is_active?: boolean;
+          last_briefed_at?: string | null;
           role?: Database["public"]["Enums"]["app_role"];
         };
         Relationships: [];
@@ -1582,6 +1585,7 @@ export type Database = {
       ai_allowed: { Args: Record<PropertyKey, never>; Returns: boolean };
       apply_bill: { Args: { p_bill_id: string }; Returns: undefined };
       article_delete_report: { Args: { p_article_id: string }; Returns: Json };
+      briefing_counts: { Args: { p_since: string }; Returns: Json };
       bootstrap_owner: { Args: { p_email: string; p_name?: string }; Returns: string };
       create_lead: { Args: { p: Json }; Returns: Json };
       finish_scan_job: { Args: { p_job: string; p: Json }; Returns: string };

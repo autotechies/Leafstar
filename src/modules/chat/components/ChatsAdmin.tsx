@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bot, Flag, HelpCircle, MessageSquare, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
@@ -13,8 +14,10 @@ import { Modal } from "@/components/ui/Modal";
 import { Tabs, TabPanel } from "@/components/ui/Tabs";
 import { useToast } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
-import { deleteFaqAction, flagSessionAction, loadTranscriptAction, resolveUnansweredAction, saveFaqAction } from "../actions";
-import type { ChatsData, FaqRow, SessionRow, TranscriptMessage, UnansweredRow } from "../types";
+import { formatPhone } from "@/lib/formats";
+import { cameBackLabel, dayLabel, istDate, timeLabel } from "@/lib/when";
+import { deleteFaqAction, flagSessionAction, loadVisitorChatAction, resolveUnansweredAction, saveFaqAction } from "../actions";
+import type { ChatsData, FaqRow, UnansweredRow, VisitorRow, VisitorThread } from "../types";
 
 const when = (iso: string) => new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
@@ -25,8 +28,8 @@ export function ChatsAdmin({ data }: { data: ChatsData }) {
   const openQuestions = data.unanswered.filter((u) => u.status === "open");
 
   // Transcript
-  const [viewing, setViewing] = useState<SessionRow | null>(null);
-  const [messages, setMessages] = useState<TranscriptMessage[] | null>(null);
+  const [viewing, setViewing] = useState<VisitorRow | null>(null);
+  const [thread, setThread] = useState<VisitorThread | null>(null);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -35,19 +38,22 @@ export function ChatsAdmin({ data }: { data: ChatsData }) {
   const [faqError, setFaqError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<FaqRow | null>(null);
 
-  async function openChat(s: SessionRow) {
-    setViewing(s);
-    setNote(s.ownerNote ?? "");
-    setMessages(null);
-    const r = await loadTranscriptAction(s.id);
-    setMessages(r.ok ? r.messages : []);
-    if (!r.ok) toast.show({ kind: "error", title: r.error });
+  async function openChat(v: VisitorRow) {
+    setViewing(v);
+    setThread(null);
+    setNote("");
+    const r = await loadVisitorChatAction(v.visitorId);
+    if (!r.ok) return toast.show({ kind: "error", title: r.error });
+    setThread(r.thread);
+    setNote(r.thread.sessions.at(-1)?.ownerNote ?? "");
   }
 
+  /** The mark and note belong to the visitor's latest conversation. */
   async function flag(flagged: boolean) {
-    if (!viewing) return;
+    const latest = thread?.sessions.at(-1);
+    if (!latest) return;
     setBusy(true);
-    const r = await flagSessionAction(viewing.id, flagged, note);
+    const r = await flagSessionAction(latest.id, flagged, note);
     setBusy(false);
     toast.show(r.ok ? { kind: "success", title: flagged ? "Marked for fixing." : "Mark removed." } : { kind: "error", title: r.error });
     if (r.ok) {
@@ -84,13 +90,22 @@ export function ChatsAdmin({ data }: { data: ChatsData }) {
     router.refresh();
   }
 
-  const chatColumns: Column<SessionRow>[] = [
-    { key: "who", header: "Visitor", primary: true, render: (s) => (<button type="button" onClick={() => void openChat(s)} className="rounded-sm text-left font-semibold hover:underline focus-ring">{s.visitorName ?? "Anonymous visitor"}</button>) },
-    { key: "first", header: "First question", render: (s) => <span className="line-clamp-2">{s.preview || "No messages"}</span> },
-    { key: "article", header: "Article", hideOnPhone: true, render: (s) => s.articleCode ?? "" },
-    { key: "count", header: "Messages", align: "right", render: (s) => s.messageCount },
-    { key: "flag", header: "", render: (s) => (s.flagged ? <Badge tone="warning">To fix</Badge> : null) },
-    { key: "when", header: "Started", hideOnPhone: true, render: (s) => when(s.startedAt) },
+  const chatColumns: Column<VisitorRow>[] = [
+    {
+      key: "who", header: "Visitor", primary: true,
+      render: (v) => (
+        <div className="flex flex-col gap-1">
+          <button type="button" onClick={() => void openChat(v)} className="rounded-sm text-left font-semibold hover:underline focus-ring">{v.leadName ?? v.name ?? "Anonymous visitor"}</button>
+          {v.phone ? <span className="type-caption tabular text-fg-muted">{formatPhone(v.phone)}</span> : null}
+        </div>
+      ),
+    },
+    { key: "last", header: "Last question", render: (v) => <span className="line-clamp-2">{v.lastQuestion || "No messages"}</span> },
+    { key: "lead", header: "Contact", hideOnPhone: true, render: (v) => (v.leadId ? <Badge tone="success">Shared contact · {v.leadStage}</Badge> : <Badge tone="neutral">No contact yet</Badge>) },
+    { key: "visits", header: "Visits", align: "right", hideOnPhone: true, render: (v) => v.visits },
+    { key: "count", header: "Messages", align: "right", render: (v) => v.messageCount },
+    { key: "flag", header: "", render: (v) => (v.flagged ? <Badge tone="warning">To fix</Badge> : null) },
+    { key: "when", header: "Last chat", hideOnPhone: true, render: (v) => when(v.lastAt) },
   ];
   const faqColumns: Column<FaqRow>[] = [
     { key: "q", header: "Question", primary: true, render: (f) => <span className="font-semibold">{f.question}</span> },
@@ -106,7 +121,7 @@ export function ChatsAdmin({ data }: { data: ChatsData }) {
         value={tab}
         onChange={setTab}
         items={[
-          { id: "chats", label: "Conversations", count: data.sessions.length },
+          { id: "chats", label: "Visitors", count: data.visitors.length },
           { id: "unanswered", label: "Could not answer", count: openQuestions.length },
           { id: "faq", label: "Your answers", count: data.faqs.length },
         ]}
@@ -115,7 +130,7 @@ export function ChatsAdmin({ data }: { data: ChatsData }) {
       {tab === "chats" ? (
         <TabPanel>
           <Card padding="none">
-            <DataTable columns={chatColumns} rows={data.sessions} rowKey={(s) => s.id} caption="Conversations" empty={<EmptyState icon={MessageSquare} title="No conversations yet" description="When a visitor talks to the website assistant, the conversation appears here." />} />
+            <DataTable columns={chatColumns} rows={data.visitors} rowKey={(v) => v.visitorId} caption="Visitors who chatted" empty={<EmptyState icon={MessageSquare} title="No conversations yet" description="When a visitor talks to the website assistant, the conversation appears here." />} />
           </Card>
         </TabPanel>
       ) : null}
@@ -156,28 +171,55 @@ export function ChatsAdmin({ data }: { data: ChatsData }) {
       <Modal
         open={Boolean(viewing)}
         onClose={() => setViewing(null)}
-        title={viewing?.visitorName ?? "Anonymous visitor"}
-        description={viewing ? `${when(viewing.startedAt)}${viewing.visitorPhone ? ` · ${viewing.visitorPhone}` : ""}` : undefined}
+        title={viewing?.leadName ?? viewing?.name ?? "Anonymous visitor"}
+        description={viewing ? `${viewing.visits} visit${viewing.visits === 1 ? "" : "s"} · ${viewing.messageCount} messages · first chat ${when(viewing.firstAt)}` : undefined}
         footer={
           <>
             <Button variant="secondary" onClick={() => setViewing(null)}>Close</Button>
-            {viewing?.flagged ? <Button variant="secondary" loading={busy} onClick={() => void flag(false)}>Remove mark</Button> : null}
+            {thread?.sessions.at(-1)?.flagged ? <Button variant="secondary" loading={busy} onClick={() => void flag(false)}>Remove mark</Button> : null}
             <Button loading={busy} icon={<Flag aria-hidden="true" className="size-icon" />} onClick={() => void flag(true)}>Mark as a bad answer</Button>
           </>
         }
       >
         <div className="flex flex-col gap-4">
-          {messages === null ? <p className="type-small text-fg-muted">Loading…</p> : (
-            <ul className="flex flex-col gap-2">
-              {messages.map((m) => (
-                <li key={m.id} className={cx("rounded-lg px-3 py-2 type-small", m.role === "user" ? "ml-6 bg-surface-2" : "mr-6 border border-border")}>
-                  <span className="mb-1 block type-caption text-fg-muted">{m.role === "user" ? "Visitor" : "Assistant"}</span>
-                  {m.content}
-                </li>
-              ))}
-            </ul>
+          {thread?.leadId || thread?.phone ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 p-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <p className="type-small font-semibold">{thread.leadName ?? thread.name ?? "Shared a phone number"}</p>
+                {thread.phone ? <p className="type-caption tabular text-fg-muted">{formatPhone(thread.phone)}</p> : null}
+              </div>
+              {thread.leadId ? (
+                <Link href={`/admin/crm/${thread.leadId}`} className="inline-flex min-h-control items-center rounded-sm type-small font-bold text-gold-text underline focus-ring">Open lead ({thread.leadStage})</Link>
+              ) : <Badge tone="neutral">No lead yet</Badge>}
+            </div>
+          ) : null}
+          {thread === null ? <p className="type-small text-fg-muted">Loading…</p> : (
+            <ol className="flex flex-col gap-2" aria-label="Conversation history">
+              {thread.sessions.map((sess, si) => {
+                const prev = thread.sessions[si - 1];
+                return (
+                  <Fragment key={sess.id}>
+                    {prev ? <li className="my-2 flex items-center gap-3 type-caption font-semibold text-fg-muted"><span className="h-px flex-1 bg-border" aria-hidden="true" />{cameBackLabel(prev.messages.at(-1)?.createdAt ?? prev.startedAt, sess.messages[0]?.createdAt ?? sess.startedAt)}<span className="h-px flex-1 bg-border" aria-hidden="true" /></li> : null}
+                    {sess.articleCode ? <li className="type-caption text-fg-muted">Opened from article {sess.articleCode}</li> : null}
+                    {sess.messages.map((m, mi) => {
+                      const before = mi === 0 ? prev?.messages.at(-1) : sess.messages[mi - 1];
+                      const newDay = !before || istDate(before.createdAt) !== istDate(m.createdAt);
+                      return (
+                        <Fragment key={m.id}>
+                          {newDay ? <li className="mt-2 self-center rounded-full bg-surface-2 px-3 py-1 type-caption font-semibold text-fg-muted">{dayLabel(m.createdAt)}</li> : null}
+                          <li className={cx("rounded-lg px-3 py-2 type-small", m.role === "user" ? "ml-6 bg-surface-2" : "mr-6 border border-border")}>
+                            <span className="mb-1 flex justify-between gap-3 type-caption text-fg-muted"><span>{m.role === "user" ? "Visitor" : "Assistant"}</span><span className="tabular">{timeLabel(m.createdAt)}</span></span>
+                            {m.content}
+                          </li>
+                        </Fragment>
+                      );
+                    })}
+                  </Fragment>
+                );
+              })}
+            </ol>
           )}
-          <Textarea label="Note for yourself" rows={2} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} helper="For example: should have said we make it in 3 colours." />
+          <Textarea label="Note for yourself" rows={2} value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} helper="For example: should have said we make it in 3 colours. Saved with the latest conversation." />
         </div>
       </Modal>
 

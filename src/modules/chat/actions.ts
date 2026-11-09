@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requireStaff } from "@/modules/auth/session";
-import type { TranscriptMessage } from "./types";
+import type { TranscriptMessage, VisitorThread } from "./types";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 const fail = (error = "Could not save that. Try again."): { ok: false; error: string } => ({ ok: false, error });
@@ -14,6 +14,33 @@ export async function loadTranscriptAction(sessionId: string): Promise<Result<{ 
   const { data, error } = await (await supabaseServer()).from("chat_messages").select("id, role, content, created_at").eq("session_id", sessionId).order("created_at");
   if (error) return fail("Could not load that chat.");
   return { ok: true, messages: (data ?? []).map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: m.content, createdAt: m.created_at })) };
+}
+
+export async function loadVisitorChatAction(visitorId: string): Promise<Result<{ thread: VisitorThread }>> {
+  await requireStaff(undefined, "/admin/chats");
+  if (!z.uuid().safeParse(visitorId).success) return fail("That visitor was not found.");
+  const supabase = await supabaseServer();
+  const [{ data: visitor }, { data: sessions }] = await Promise.all([
+    supabase.from("visitors").select("id, name, phone").eq("id", visitorId).maybeSingle(),
+    supabase.from("chat_sessions").select("id, started_at, flagged, owner_note, article_id").eq("visitor_id", visitorId).order("started_at"),
+  ]);
+  if (!visitor) return fail("That visitor was not found.");
+  const ids = (sessions ?? []).map((s) => s.id);
+  const articleIds = [...new Set((sessions ?? []).map((s) => s.article_id).filter((x): x is string => Boolean(x)))];
+  const [{ data: messages }, { data: articles }, { data: lead }] = await Promise.all([
+    ids.length ? supabase.from("chat_messages").select("id, session_id, role, content, created_at").in("session_id", ids).order("created_at") : Promise.resolve({ data: [] as Array<{ id: string; session_id: string; role: string; content: string; created_at: string }> }),
+    articleIds.length ? supabase.from("articles").select("id, code").in("id", articleIds) : Promise.resolve({ data: [] as Array<{ id: string; code: string }> }),
+    visitor.phone ? supabase.from("leads").select("id, name, stage").eq("phone", visitor.phone).order("created_at", { ascending: false }).limit(1).maybeSingle() : Promise.resolve({ data: null }),
+  ]);
+  const code = new Map((articles ?? []).map((x) => [x.id, x.code]));
+  const thread: VisitorThread = {
+    visitorId, name: visitor.name, phone: visitor.phone, leadId: lead?.id ?? null, leadName: lead?.name ?? null, leadStage: lead?.stage ?? null,
+    sessions: (sessions ?? []).map((s) => ({
+      id: s.id, startedAt: s.started_at, flagged: s.flagged, ownerNote: s.owner_note, articleCode: s.article_id ? code.get(s.article_id) ?? null : null,
+      messages: (messages ?? []).filter((m) => m.session_id === s.id).map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: m.content, createdAt: m.created_at })),
+    })),
+  };
+  return { ok: true, thread };
 }
 
 export async function flagSessionAction(sessionId: string, flagged: boolean, note: string): Promise<Result> {

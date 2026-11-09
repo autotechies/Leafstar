@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import Link from "next/link";
 import { AtSign, MessageCircle, Phone } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +9,9 @@ import { Banner } from "@/components/ui/Feedback";
 import { Select, Textarea, TextInput } from "@/components/ui/Field";
 import { Drawer } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
+import { cx } from "@/lib/cx";
 import { formatPhone } from "@/lib/formats";
+import { dayLabel, istDate, timeLabel } from "@/lib/when";
 import { formatRupees } from "@/lib/numbers";
 import { ImageViewer } from "@/modules/images/components/LazyImageViewer";
 import { whatsappLink } from "@/modules/site/links";
@@ -138,6 +141,30 @@ export function LeadDrawer({ leadId, onClose, onChanged, onStageChange }: { lead
               </ul>
             )}
           </section>
+
+          {lead.chat ? (
+            <section aria-label="Website chat" className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="type-h4">Website chat</h3>
+                <Link href="/admin/chats" className="rounded-sm type-small font-bold text-gold-text underline focus-ring">All chats</Link>
+              </div>
+              <p className="type-caption text-fg-muted">{lead.chat.visits} visit{lead.chat.visits === 1 ? "" : "s"}. Latest {lead.chat.messages.length} messages.</p>
+              <ol className="flex flex-col gap-2">
+                {lead.chat.messages.map((m, n) => {
+                  const before = lead.chat?.messages[n - 1];
+                  return (
+                    <Fragment key={m.id}>
+                      {!before || istDate(before.createdAt) !== istDate(m.createdAt) ? <li className="mt-1 self-center rounded-full bg-surface-2 px-3 py-1 type-caption font-semibold text-fg-muted">{dayLabel(m.createdAt)}</li> : null}
+                      <li className={cx("rounded-lg px-3 py-2 type-small", m.role === "user" ? "ml-6 bg-surface-2" : "mr-6 border border-border")}>
+                        <span className="mb-1 flex justify-between gap-3 type-caption text-fg-muted"><span>{m.role === "user" ? "Visitor" : "Assistant"}</span><span className="tabular">{timeLabel(m.createdAt)}</span></span>
+                        {m.content}
+                      </li>
+                    </Fragment>
+                  );
+                })}
+              </ol>
+            </section>
+          ) : null}
 
           <section aria-label="Timeline" className="flex flex-col gap-3">
             <h3 className="type-h4">Timeline</h3>

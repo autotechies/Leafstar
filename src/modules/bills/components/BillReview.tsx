@@ -16,13 +16,18 @@ import { formatNumber, formatRupees } from "@/lib/numbers";
 import { ImageViewer } from "@/modules/images/components/LazyImageViewer";
 import { discardScanJobAction, saveBillAction, undoBillAction } from "../actions";
 import { isAssortedLine } from "../assorted";
-import { suggestSplit } from "../split";
 import { CONFIDENT, type BillDraft, type DraftItem, type VariantOption } from "../types";
 
 /*
   Review (AGENTS.md §10): the original bill beside its lines. Unmatched and unsure lines are marked and must be settled
   before stock is deducted. Applying is one step, followed by a 15-second Undo.
 */
+
+/** Lines that came from one assorted bill line share a key: the article code plus the bill's own text. */
+function groupKeyOf(i: DraftItem, options: VariantOption[]): string | null {
+  const code = `${i.rawText} ${i.name}`.toUpperCase().match(/LS-[A-Z]{2}-\d{4}/)?.[0] ?? null;
+  return code && options.some((o) => o.articleCode.toUpperCase() === code) && isAssortedLine(i) ? `${code}|${i.rawText || i.name}` : null;
+}
 
 const methodLabel: Record<string, string> = { sku: "Code on the bill", alias: "Learned from you", fuzzy: "Name match", manual: "Chosen by you" };
 
@@ -58,7 +63,7 @@ function Original({ bill }: { bill: BillDraft }) {
   );
 }
 
-export function BillReview({ bill, options, nextDraftId, history }: { bill: BillDraft; options: VariantOption[]; nextDraftId: string | null; history: Record<string, number> }) {
+export function BillReview({ bill, options, nextDraftId }: { bill: BillDraft; options: VariantOption[]; nextDraftId: string | null }) {
   const router = useRouter();
   const toast = useToast();
   const readOnly = bill.status !== "draft";
@@ -80,6 +85,21 @@ export function BillReview({ bill, options, nextDraftId, history }: { bill: Bill
   const unmatched = items.filter((i) => !i.variantId).length;
   const over = [...demand].filter(([id, qty]) => (byId.get(id)?.stock ?? 0) - qty < 0).length;
   const set = (key: string, change: Partial<DraftItem>) => setItems((cur) => cur.map((i) => (i.key === key ? { ...i, ...change } : i)));
+  // For every assorted bill line: what the bill said, and what the owner has chosen so far.
+  const splitGroups = useMemo(() => {
+    const keyOf = (i: DraftItem) => groupKeyOf(i, options);
+    const billed = new Map<string, number>();
+    for (const i of bill.items) { const k = keyOf(i); if (k) billed.set(k, (billed.get(k) ?? 0) + i.qty); }
+    const groups = new Map<string, { key: string; code: string; title: string; billed: number; lines: DraftItem[] }>();
+    for (const i of items) {
+      const k = keyOf(i);
+      if (!k) continue;
+      const g = groups.get(k) ?? { key: k, code: k.split("|")[0], title: i.name || i.rawText, billed: billed.get(k) ?? 0, lines: [] };
+      g.lines.push(i);
+      groups.set(k, g);
+    }
+    return [...groups.values()].filter((g) => g.lines.length > 1);
+  }, [items, bill.items, options]);
   const pieces = items.reduce((s, i) => s + (Number.isFinite(i.qty) ? i.qty : 0), 0);
 
   const payload = (apply: boolean) => ({
@@ -165,7 +185,6 @@ export function BillReview({ bill, options, nextDraftId, history }: { bill: Bill
                 const articleOptions = nameCode ? options.filter((o) => o.articleCode.toUpperCase() === nameCode) : [];
                 const splitLine = !readOnly && isAssortedLine(i) && articleOptions.length > 0 && (!i.variantId || articleOptions.some((o) => o.id === i.variantId));
                 const choices = splitLine ? articleOptions : options;
-                const suggestion = splitLine && !i.variantId ? suggestSplit({ qty: i.qty, variants: articleOptions.map((o) => ({ id: o.id, colour: o.colour, size: o.size, stock: o.stock })), sizeText: `${i.size} ${i.name}`, colourText: i.colour, history }) : null;
                 return (
                   <li key={i.key} className={cx("flex flex-col gap-3 rounded-lg border p-3", !i.variantId ? "border-danger" : sure ? "border-border" : "border-warning")}>
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -203,25 +222,9 @@ export function BillReview({ bill, options, nextDraftId, history }: { bill: Bill
                     </div>
                     {splitLine ? (
                       <div className="flex flex-col gap-2 rounded-md bg-surface-2 p-3">
-                        <p className="type-small">
-                          This line is for article <strong>{nameCode}</strong> but does not name one colour and size, so the bill cannot say which pieces to deduct. Choose a colour and size for part of the pieces, then use <strong>Split</strong> for the rest, or accept the suggestion below. The list shows only this article.
-                        </p>
-                        {suggestion && suggestion.lines.length > 0 ? (
-                          <div className="flex flex-col gap-2 rounded-md border border-border bg-surface p-3">
-                            <p className="type-small font-semibold">Suggested split of {formatNumber(i.qty)} pieces</p>
-                            <ul className="flex flex-col gap-1 type-small">
-                              {suggestion.lines.map((l) => {
-                                const o = byId.get(l.variantId);
-                                return <li key={l.variantId} className="flex justify-between gap-3"><span>{o ? `${o.colour} · ${o.size}` : l.variantId}</span><span className="tabular font-semibold">{formatNumber(l.qty)}</span></li>;
-                              })}
-                              {suggestion.shortfall > 0 ? <li className="flex justify-between gap-3 text-danger"><span>Not covered by stock</span><span className="tabular font-semibold">{formatNumber(suggestion.shortfall)}</span></li> : null}
-                            </ul>
-                            <p className="type-caption text-fg-muted">{suggestion.basis === "history" ? "Based on what this buyer was sent on earlier bills, kept within what we hold." : "Based on what we hold now, in proportion."} Check every number before you deduct.</p>
-                            <div>
-                              <Button size="sm" onClick={() => setItems((cur) => { const at = cur.findIndex((x) => x.key === i.key); const parts: DraftItem[] = suggestion.lines.map((l) => ({ ...i, key: crypto.randomUUID(), variantId: l.variantId, qty: l.qty, amount: i.rate !== null ? i.rate * l.qty : null, method: "manual", confidence: 1, learn: false })); if (suggestion.shortfall > 0) parts.push({ ...i, key: crypto.randomUUID(), variantId: null, qty: suggestion.shortfall, amount: i.rate !== null ? i.rate * suggestion.shortfall : null, method: null, confidence: null, learn: false }); return [...cur.slice(0, at), ...parts, ...cur.slice(at + 1)]; })}>Use this split</Button>
-                            </div>
-                          </div>
-                        ) : null}
+                        {items.find((x) => groupKeyOf(x, options) === groupKeyOf(i, options)) === i ? <p className="type-small">
+                          This line is for article <strong>{nameCode}</strong> but does not name one colour and size, so the bill cannot say which pieces to deduct. Choose a colour and size for part of the pieces, then press <strong>Split this line</strong> for each other colour and size. The list shows only this article. A summary of what you chose appears under the lines.
+                        </p> : <p className="type-small text-fg-muted">Another part of the same bill line ({nameCode}).</p>}
                         <div>
                           <Button size="sm" variant="secondary" icon={<Plus aria-hidden="true" className="size-icon-sm" />} onClick={() => setItems((cur) => { const at = cur.findIndex((x) => x.key === i.key); const copy: DraftItem = { ...i, key: crypto.randomUUID(), variantId: null, qty: 0, method: null, confidence: null, learn: false }; return [...cur.slice(0, at + 1), copy, ...cur.slice(at + 1)]; })}>
                             Split this line
@@ -246,6 +249,48 @@ export function BillReview({ bill, options, nextDraftId, history }: { bill: Bill
               })}
             </ul>
           </Card>
+
+          {splitGroups.map((g) => {
+            const chosen = g.lines.filter((l) => l.variantId);
+            const assigned = chosen.reduce((sum, l) => sum + l.qty, 0);
+            const left = g.billed - assigned;
+            const rows = [...chosen].sort((x, y) => (byId.get(x.variantId as string)?.label ?? "").localeCompare(byId.get(y.variantId as string)?.label ?? ""));
+            return (
+              <Card key={g.key} aria-label={`Split summary for ${g.code}`}>
+                <CardHeader title={`What you chose for ${g.code}`} description={g.title} />
+                {rows.length === 0 ? <p className="type-small text-fg-muted">No colour and size chosen yet.</p> : (
+                  <table className="w-full type-small">
+                    <thead>
+                      <tr className="border-b border-border text-left text-fg-muted">
+                        <th scope="col" className="py-2 pr-3 font-semibold">Colour</th>
+                        <th scope="col" className="py-2 pr-3 font-semibold">Size</th>
+                        <th scope="col" className="py-2 pl-3 text-right font-semibold">Pieces</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((l) => {
+                        const o = byId.get(l.variantId as string);
+                        return (
+                          <tr key={l.key} className="border-b border-border last:border-0">
+                            <td className="py-2 pr-3">{o?.colour ?? "Unknown"}</td>
+                            <td className="py-2 pr-3">{o?.size ?? ""}</td>
+                            <td className="tabular py-2 pl-3 text-right font-semibold">{formatNumber(l.qty)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+                <p role="status" className={cx("border-t border-border pt-3 type-small font-semibold", left === 0 ? "text-success" : left > 0 ? "text-warning" : "text-danger")}>
+                  {left === 0
+                    ? `All ${formatNumber(g.billed)} pieces on the bill are placed.`
+                    : left > 0
+                      ? `${formatNumber(assigned)} of ${formatNumber(g.billed)} pieces placed. ${formatNumber(left)} still to place.`
+                      : `${formatNumber(assigned)} pieces placed, ${formatNumber(-left)} more than the bill's ${formatNumber(g.billed)}.`}
+                </p>
+              </Card>
+            );
+          })}
 
           {error ? <Banner tone="danger">{error}</Banner> : null}
           {readOnly ? null : (
