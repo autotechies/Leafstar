@@ -9,8 +9,9 @@
 */
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = new URL("..", import.meta.url).pathname;
+const root = fileURLToPath(new URL("..", import.meta.url));
 const srcDir = join(root, "src");
 const exempt = new Set(["src/app/globals.css", "src/lib/tokens.ts", "src/types/database.ts", "src/app/layout.tsx", "src/app/manifest.ts"]);
 
@@ -29,7 +30,7 @@ const rules = [
 
 const problems = [];
 for (const file of walk(srcDir).filter((f) => /\.(tsx?|css)$/.test(f))) {
-  const rel = relative(root, file);
+  const rel = relative(root, file).replace(/\\/g, "/");
   if (exempt.has(rel)) continue;
   const lines = readFileSync(file, "utf8").split("\n");
   lines.forEach((line, i) => {

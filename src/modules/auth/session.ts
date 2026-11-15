@@ -38,10 +38,9 @@ export type StaffLookup =
 */
 export const lookupStaff = cache(async (): Promise<StaffLookup> => {
   const supabase = await supabaseServer();
-  const { data: claimsData, error } = await supabase.auth.getClaims();
-  const claims = claimsData?.claims;
-  if (error || !claims?.sub) return { status: "signed-out" };
-  const user = { id: claims.sub, email: typeof claims.email === "string" ? claims.email : "" };
+  const { data: userData, error } = await supabase.auth.getUser();
+  if (error || !userData?.user) return { status: "signed-out" };
+  const user = { id: userData.user.id, email: userData.user.email ?? "" };
 
   const [{ data: profile }, { data: aal }] = await Promise.all([
     supabase.from("profiles").select("full_name, role, is_active").eq("id", user.id).maybeSingle(),

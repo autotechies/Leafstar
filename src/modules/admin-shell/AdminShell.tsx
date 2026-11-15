@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Suspense, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Menu, X } from "lucide-react";
 import { SearchBox } from "@/modules/search/components/SearchBox";
 import { Logo } from "@/components/brand/Logo";
@@ -65,6 +65,17 @@ function SidebarBody({ inboxBadge, onNavigate }: { inboxBadge?: ReactNode; onNav
 export function AdminShell({ children, userMenu, inboxBadge, assistant }: { children: ReactNode; userMenu: ReactNode; inboxBadge?: ReactNode; assistant?: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { ref, onBackdropClick } = useNativeDialog(menuOpen, () => setMenuOpen(false));
+
+  // Invalidate bfcache (Back-Forward Cache) when browser navigates back to admin
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   return (
     <div className="min-h-dvh bg-bg lg:flex">

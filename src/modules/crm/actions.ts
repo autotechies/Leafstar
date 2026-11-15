@@ -4,8 +4,15 @@ import { z } from "zod";
 import { normalizeGstin, normalizeInstagram, normalizePhone } from "@/lib/formats";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requireStaff } from "@/modules/auth/session";
-import { loadLeadDetail } from "./queries";
-import { STAGES, type LeadDetail } from "./types";
+import { evaluateCustomerAi } from "./ai";
+import {
+  extractRawSheetRows,
+  processRawBuyerRows,
+  FileParseError,
+  type ParseBuyerFileResult,
+} from "./importer";
+import { loadBuyerDossier, loadLeadDetail } from "./queries";
+import { CUSTOMER_TIERS, STAGES, type CustomerAiProfile, type CustomerTier, type LeadDetail } from "./types";
 
 type Result<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 const fail = (error = "Could not save that. Try again."): { ok: false; error: string } => ({ ok: false, error });
@@ -100,6 +107,8 @@ const buyerSchema = z.object({
   creditLimit: z.number().min(0).max(1_000_000_000).nullable(),
   paymentTermsDays: z.number().int().min(0).max(365).nullable(),
   notes: z.string().trim().max(1000).optional(),
+  customerTier: z.enum(CUSTOMER_TIERS).optional(),
+  tags: z.array(z.string().trim().max(40)).optional(),
 });
 
 export async function saveBuyerAction(raw: unknown): Promise<Result> {
@@ -112,9 +121,174 @@ export async function saveBuyerAction(raw: unknown): Promise<Result> {
     gstin = normalizeGstin(d.gstin);
     if (!gstin) return fail("That GSTIN does not look right. It has 15 characters, like 24ABCDE1234F1Z5.");
   }
-  const { error } = await (await supabaseServer()).from("contacts").update({
-    name: d.name, business_name: d.businessName || null, email: d.email || null, city: d.city || null, gstin,
-    credit_limit: d.creditLimit, payment_terms_days: d.paymentTermsDays, notes: d.notes || null,
-  }).eq("id", d.id);
+
+  const { error } = await (await supabaseServer())
+    .from("contacts")
+    .update({
+      name: d.name,
+      business_name: d.businessName || null,
+      email: d.email || null,
+      city: d.city || null,
+      gstin,
+      credit_limit: d.creditLimit,
+      payment_terms_days: d.paymentTermsDays,
+      notes: d.notes || null,
+      customer_tier: d.customerTier,
+      tags: d.tags,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", d.id);
   return error ? fail() : { ok: true };
+}
+
+export async function evaluateCustomerAiAction(contactId: string): Promise<Result<{ tier: CustomerTier; profile: CustomerAiProfile; tags: string[] }>> {
+  await requireStaff(undefined, `/admin/crm/buyers/${encodeURIComponent(contactId)}`);
+  if (!z.uuid().safeParse(contactId).success) return fail("Invalid customer ID.");
+
+  const dossier = await loadBuyerDossier(contactId);
+  if (!dossier) return fail("Customer not found.");
+
+  try {
+    const evaluated = await evaluateCustomerAi(dossier);
+    return { ok: true, tier: evaluated.tier, profile: evaluated.profile, tags: evaluated.tags };
+  } catch (err) {
+    const msg = (err as Error)?.message || "Could not evaluate customer with AI right now.";
+    return fail(msg);
+  }
+}
+
+const importRowSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  businessName: z.string().trim().optional(),
+  phone: z.string().trim().optional(),
+  email: z.string().trim().optional(),
+  city: z.string().trim().optional(),
+  gstin: z.string().trim().optional(),
+  creditLimit: z.number().nullable().optional(),
+  paymentTermsDays: z.number().nullable().optional(),
+  notes: z.string().trim().optional(),
+  customerTier: z.enum(CUSTOMER_TIERS).optional(),
+  tags: z.array(z.string().trim()).optional(),
+});
+
+export async function importBuyersAction(rawList: unknown): Promise<Result<{ inserted: number; updated: number }>> {
+  await requireStaff(undefined, "/admin/crm/buyers");
+  if (!Array.isArray(rawList)) return fail("Expected a list of customer rows.");
+
+  const validRows = [];
+  for (const raw of rawList) {
+    const parsed = importRowSchema.safeParse(raw);
+    if (!parsed.success) continue;
+    const r = parsed.data;
+
+    let phone: string | null = null;
+    if (r.phone) {
+      phone = normalizePhone(r.phone);
+    }
+
+    let gstin: string | null = null;
+    if (r.gstin) {
+      gstin = normalizeGstin(r.gstin);
+    }
+
+    validRows.push({
+      name: r.name,
+      business_name: r.businessName || null,
+      phone,
+      email: r.email || null,
+      city: r.city || null,
+      gstin,
+      credit_limit: r.creditLimit ?? null,
+      payment_terms_days: r.paymentTermsDays ?? null,
+      notes: r.notes || null,
+      customer_tier: r.customerTier || "new_prospect",
+      tags: r.tags || [],
+    });
+  }
+
+  if (validRows.length === 0) {
+    return fail("No valid customer rows found to import.");
+  }
+
+  const supabase = await supabaseServer();
+
+  // Try bulk_upsert_buyers RPC function
+  const rpcRes = await supabase.rpc("bulk_upsert_buyers", { p_buyers: validRows });
+  if (!rpcRes.error && rpcRes.data) {
+    const data = rpcRes.data as { inserted: number; updated: number };
+    return { ok: true, inserted: data.inserted, updated: data.updated };
+  }
+
+  // Fallback to row-by-row upsert if migration 016 function isn't yet compiled
+  let inserted = 0;
+  let updated = 0;
+
+  for (const row of validRows) {
+    if (row.phone) {
+      const { data: existing } = await supabase.from("contacts").select("id").eq("phone", row.phone).maybeSingle();
+      if (existing) {
+        await supabase
+          .from("contacts")
+          .update({
+            name: row.name,
+            business_name: row.business_name,
+            city: row.city,
+            gstin: row.gstin,
+            credit_limit: row.credit_limit,
+            payment_terms_days: row.payment_terms_days,
+            customer_tier: row.customer_tier,
+          })
+          .eq("id", existing.id);
+        updated++;
+        continue;
+      }
+    }
+
+    await supabase.from("contacts").insert({
+      name: row.name,
+      business_name: row.business_name,
+      phone: row.phone,
+      email: row.email,
+      city: row.city,
+      gstin: row.gstin,
+      credit_limit: row.credit_limit,
+      payment_terms_days: row.payment_terms_days,
+      notes: row.notes,
+      roles: ["buyer"],
+      customer_tier: row.customer_tier,
+      tags: row.tags,
+    });
+    inserted++;
+  }
+
+  return { ok: true, inserted, updated };
+}
+
+export async function parseBuyerFileAction(
+  formData: FormData,
+): Promise<Result<{ result: ParseBuyerFileResult }>> {
+  await requireStaff(undefined, "/admin/crm/buyers");
+  const file = formData.get("file");
+
+  if (!file || typeof file === "string" || !(file instanceof Blob)) {
+    return fail("Please select an Excel (.xlsx) or CSV/TSV data file to upload.");
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    return fail("The uploaded file is too large (maximum 5 MB).");
+  }
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const rawRows = await extractRawSheetRows(buffer, file.name);
+    const result = processRawBuyerRows(rawRows, file.name);
+    return { ok: true, result };
+  } catch (err) {
+    if (err instanceof FileParseError) {
+      return fail(err.message);
+    }
+    const message = err instanceof Error ? err.message : "Failed to parse file.";
+    return fail(`Could not process this file: ${message}`);
+  }
 }

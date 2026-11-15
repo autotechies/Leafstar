@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
   cacheComponents: !isPreviewExport,
   partialPrefetching: !isPreviewExport,
   poweredByHeader: false,
+  devIndicators: false,
   // The Excel stock import sends a file (up to 5 MB) to a Server Action.
   experimental: { serverActions: { bodySizeLimit: "6mb" } },
   env: {
@@ -47,6 +48,14 @@ const nextConfig: NextConfig = {
                 { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
                 { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
                 { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" },
+              ],
+            },
+            {
+              source: "/admin/:path*",
+              headers: [
+                { key: "Cache-Control", value: "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0" },
+                { key: "Pragma", value: "no-cache" },
+                { key: "Expires", value: "0" },
               ],
             },
           ];

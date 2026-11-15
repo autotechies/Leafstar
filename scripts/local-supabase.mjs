@@ -263,7 +263,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   NEXT_PUBLIC_SUPABASE_URL=${stack.url}
   NEXT_PUBLIC_SUPABASE_ANON_KEY=${stack.anonKey}
   SUPABASE_SERVICE_ROLE_KEY=${stack.serviceKey}
-  owner: ${stack.owner.email} / ${stack.owner.password}
+  owner: ${stack.owner.email} / <redacted>
 Press Ctrl+C to stop.`);
   const stop = async () => {
     await stack.stop();

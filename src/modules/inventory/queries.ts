@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { requireStaff } from "@/modules/auth/session";
 import type { Photo } from "@/modules/images/types";
+import { loadProduct360, type Product360Stats } from "./product360";
+
+export type { Product360Stats, ProductBuyerHistory } from "./product360";
 
 export interface InvVariant {
   id: string;
@@ -109,7 +112,7 @@ export async function loadInventory(): Promise<{ articles: InvArticle[]; brands:
   return { articles: (articles.data as unknown as Row[]).map(toArticle), brands: brands.data };
 }
 
-export async function loadArticle(code: string): Promise<{ article: InvArticle; movements: Movement[]; brands: Array<{ id: string; name: string }> }> {
+export async function loadArticle(code: string): Promise<{ article: InvArticle; movements: Movement[]; brands: Array<{ id: string; name: string }>; product360: Product360Stats }> {
   await requireStaff(undefined, `/admin/inventory/${encodeURIComponent(code)}`);
   const supabase = await supabaseServer();
   const found = await supabase.from("articles").select(ARTICLE_SELECT).eq("code", code.toUpperCase()).maybeSingle();
@@ -119,7 +122,7 @@ export async function loadArticle(code: string): Promise<{ article: InvArticle; 
 
   const variantIds = article.colours.flatMap((c) => c.variants.map((v) => v.id));
   const skuById = new Map(article.colours.flatMap((c) => c.variants.map((v) => [v.id, v.sku] as const)));
-  const [moves, brands] = await Promise.all([
+  const [moves, brands, product360] = await Promise.all([
     variantIds.length
       ? supabase
           .from("stock_movements")
@@ -130,6 +133,7 @@ export async function loadArticle(code: string): Promise<{ article: InvArticle; 
           .limit(200)
       : Promise.resolve({ data: [], error: null }),
     supabase.from("brands").select("id, name").order("name"),
+    loadProduct360(article.id, article.updatedAt),
   ]);
   if (moves.error) throw new Error(`History could not be loaded: ${moves.error.message}`);
   const rows = moves.data as unknown as Array<{ id: string; variant_id: string; qty_change: number; reason: string; note: string | null; bill_id: string | null; reverses_movement_id: string | null; created_at: string; batches: { code: string } | null }>;
@@ -140,5 +144,5 @@ export async function loadArticle(code: string): Promise<{ article: InvArticle; 
     isUndo: m.reverses_movement_id !== null,
     undoable: !m.bill_id && !m.reverses_movement_id && !reversed.has(m.id) && ["production", "adjustment", "opening", "return"].includes(m.reason),
   }));
-  return { article, movements, brands: brands.data ?? [] };
+  return { article, movements, brands: brands.data ?? [], product360 };
 }

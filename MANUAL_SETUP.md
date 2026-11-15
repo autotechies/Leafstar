@@ -25,6 +25,7 @@ Run each file completely, one at a time. Each must finish with no error. Do it i
 | 12 | `supabase/013_delete_article.sql` | run (adds Delete for articles with no real history; run in **both** Supabase projects) |
 | 13 | `supabase/014_footer_details.sql` | run (adds Facebook and Year started to Settings, fills in your address, email, Instagram and Facebook where Settings is still empty; run in **both** Supabase projects) |
 | 14 | `supabase/015_owner_assistant.sql` | run (adds "last seen" to staff profiles and the counting function behind the admin assistant; run in **both** Supabase projects) |
+| 15 | `supabase/016_customer_intelligence.sql` | run (adds garment wholesale customer tiers, AI intelligence evaluation, and raw data import; run in **both** Supabase projects) |
 
 ## B. Supabase settings [now]
 - [ ] Authentication → sign-ups **OFF**; password minimum length **12**; leaked-password protection ON if your plan has it.
