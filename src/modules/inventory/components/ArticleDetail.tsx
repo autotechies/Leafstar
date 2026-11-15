@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Archive, ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Plus, RotateCcw, Trash2, Undo2 } from "lucide-react";
+import { Archive, ArrowDown, ArrowLeft, ArrowUp, Eye, EyeOff, Plus, RotateCcw, Trash2, Undo2, Users, TrendingUp } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -12,7 +12,7 @@ import { Select, Switch, TextInput, Textarea } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/Toast";
 import { cx } from "@/lib/cx";
-import { formatNumber } from "@/lib/numbers";
+import { formatNumber, formatRupees } from "@/lib/numbers";
 import { ImageViewer } from "@/modules/images/components/LazyImageViewer";
 import { PhotoUploader, type UploadedPhoto } from "@/modules/images/components/PhotoUploader";
 import { SmartImage } from "@/modules/images/components/SmartImage";
@@ -22,7 +22,7 @@ import {
   addColourAction, addSizeAction, adjustStockAction, checkArticleDeleteAction, deleteArticleAction, replacePhotosAction, setArticleStateAction, undoMovementAction, updateArticleAction,
   type DeleteReport,
 } from "../actions";
-import type { InvArticle, InvColour, InvVariant, Movement } from "../queries";
+import type { InvArticle, InvColour, InvVariant, Movement, Product360Stats } from "../queries";
 import { visibilityLabel, visibilityOf } from "../status";
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
@@ -48,7 +48,17 @@ function groupByDay(movements: Movement[]): Array<{ day: string; label: string; 
 }
 const reasonLabel: Record<string, string> = { production: "Production", adjustment: "Correction", opening: "Opening stock", return: "Return", sale: "Sold", undo: "Undo", bill: "Bill" };
 
-export function ArticleDetail({ article, movements, brands }: { article: InvArticle; movements: Movement[]; brands: Array<{ id: string; name: string }> }) {
+export function ArticleDetail({
+  article,
+  movements,
+  brands,
+  product360,
+}: {
+  article: InvArticle;
+  movements: Movement[];
+  brands: Array<{ id: string; name: string }>;
+  product360?: Product360Stats;
+}) {
   const router = useRouter();
   const toast = useToast();
   const [viewer, setViewer] = useState<{ photos: Photo[]; index: number } | null>(null);
@@ -141,6 +151,119 @@ export function ArticleDetail({ article, movements, brands }: { article: InvArti
         {stateError ? <Banner tone="danger">{stateError}</Banner> : null}
         {article.description ? <p className="type-body text-fg-muted">{article.description}</p> : null}
       </Card>
+
+      {product360 ? (
+        <Card className="flex flex-col gap-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-3">
+            <div>
+              <h2 className="type-h3 flex items-center gap-2">
+                <TrendingUp aria-hidden="true" className="size-icon-sm text-gold-text" />
+                Product 360° & Sales Intelligence
+              </h2>
+              <p className="type-small text-fg-muted">
+                Complete manufacturing, sales, velocity, and wholesale customer distribution.
+              </p>
+            </div>
+            {product360.isDeadStock ? (
+              <Badge tone="danger">Dead Stock Alert</Badge>
+            ) : product360.lastSoldAt ? (
+              <Badge tone="success">
+                Active · Last sold {product360.daysSinceLastSale === 0 ? "today" : `${product360.daysSinceLastSale}d ago`}
+              </Badge>
+            ) : (
+              <Badge tone="neutral">No Sales Yet</Badge>
+            )}
+          </div>
+
+          {product360.deadStockAlert ? (
+            <Banner tone={product360.isDeadStock ? "warning" : "info"}>
+              {product360.deadStockAlert}
+            </Banner>
+          ) : null}
+
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="rounded-lg bg-surface-2 p-4">
+              <dt className="type-caption text-fg-muted">Total Produced</dt>
+              <dd className="type-h3 tabular mt-1">{formatNumber(product360.producedPieces)}</dd>
+              <span className="type-caption text-fg-muted">pieces from factory</span>
+            </div>
+            <div className="rounded-lg bg-surface-2 p-4">
+              <dt className="type-caption text-fg-muted">Total Sold</dt>
+              <dd className="type-h3 tabular mt-1 text-gold-text">{formatNumber(product360.soldPieces)}</dd>
+              <span className="type-caption text-fg-muted">pieces on verified bills</span>
+            </div>
+            <div className="rounded-lg bg-surface-2 p-4">
+              <dt className="type-caption text-fg-muted">Current In-Stock</dt>
+              <dd className={cx("type-h3 tabular mt-1", product360.currentStock === 0 ? "text-danger" : "")}>
+                {formatNumber(product360.currentStock)}
+              </dd>
+              <span className="type-caption text-fg-muted">available in warehouse</span>
+            </div>
+            <div className="rounded-lg bg-surface-2 p-4">
+              <dt className="type-caption text-fg-muted">Returns & Adjustments</dt>
+              <dd className="type-h3 tabular mt-1">{formatNumber(product360.returnedPieces)}</dd>
+              <span className="type-caption text-fg-muted">
+                {product360.adjustments !== 0 ? `${product360.adjustments > 0 ? "+" : ""}${product360.adjustments} adj` : "0 returned"}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 pt-2">
+            <h3 className="type-small font-semibold flex items-center gap-2">
+              <Users aria-hidden="true" className="size-icon-sm text-fg-muted" />
+              Wholesale Customers Who Purchased This Article ({product360.buyers.length})
+            </h3>
+            {product360.buyers.length === 0 ? (
+              <p className="type-caption text-fg-muted italic rounded-md bg-surface-2 p-3">
+                No wholesale buyers have purchased this article on an applied bill yet.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border-subtle">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b border-border-subtle bg-surface-2 type-caption text-fg-muted">
+                      <th scope="col" className="py-2.5 px-3 text-left font-semibold">Customer / Shop</th>
+                      <th scope="col" className="py-2.5 px-3 text-left font-semibold">City</th>
+                      <th scope="col" className="py-2.5 px-3 text-right font-semibold">Pieces</th>
+                      <th scope="col" className="py-2.5 px-3 text-right font-semibold">Value</th>
+                      <th scope="col" className="py-2.5 px-3 text-right font-semibold">Last Purchased</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border-subtle type-small">
+                    {product360.buyers.map((b, i) => (
+                      <tr key={b.contactId ?? `${b.name}-${i}`} className="hover:bg-surface-2/50">
+                        <td className="py-2.5 px-3">
+                          {b.contactId ? (
+                            <Link
+                              href={`/admin/crm/buyers/${b.contactId}`}
+                              className="font-semibold text-fg hover:underline focus-ring rounded-sm"
+                            >
+                              {b.name}
+                            </Link>
+                          ) : (
+                            <span className="font-semibold">{b.name}</span>
+                          )}
+                          {b.businessName ? (
+                            <span className="block type-caption text-fg-muted">{b.businessName}</span>
+                          ) : null}
+                        </td>
+                        <td className="py-2.5 px-3 text-fg-muted">{b.city ?? "—"}</td>
+                        <td className="py-2.5 px-3 text-right tabular font-medium">{formatNumber(b.totalPieces)}</td>
+                        <td className="py-2.5 px-3 text-right tabular text-fg-muted">
+                          {b.totalValue !== null ? formatRupees(b.totalValue) : "—"}
+                        </td>
+                        <td className="py-2.5 px-3 text-right text-fg-muted">
+                          {b.lastPurchaseDate?.slice(0, 10) ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader

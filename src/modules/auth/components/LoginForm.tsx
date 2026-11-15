@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { PasswordInput, TextInput } from "@/components/ui/Field";
@@ -14,6 +14,12 @@ export function LoginForm() {
   const params = useSearchParams();
   const [state, action, pending] = useActionState(signIn, idleForm);
   const next = state.values?.next ?? params.get("next") ?? "";
+
+  useEffect(() => {
+    if (params.get("signed-out") && typeof window !== "undefined") {
+      window.history.replaceState(null, "", "/admin/login?signed-out=1");
+    }
+  }, [params]);
 
   return (
     <ActionForm action={action} className="flex flex-col gap-4" noValidate>

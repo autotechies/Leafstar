@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Article" };
 async function Content({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const data = await loadArticle(decodeURIComponent(code));
-  return <ArticleDetail article={data.article} movements={data.movements} brands={data.brands} />;
+  return <ArticleDetail article={data.article} movements={data.movements} brands={data.brands} product360={data.product360} />;
 }
 
 export default function Page({ params }: { params: Promise<{ code: string }> }) {

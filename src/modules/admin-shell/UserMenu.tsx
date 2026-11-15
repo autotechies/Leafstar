@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
-import { signOut } from "@/modules/auth/actions";
+import { supabaseBrowser } from "@/lib/supabase/browser";
 import { cx } from "@/lib/cx";
 
 /** Initial + name button; opens a small menu with Settings and Sign out. Esc and outside clicks close it. */
@@ -59,12 +59,28 @@ export function UserMenu({ name, email }: { name: string; email: string }) {
               <Settings aria-hidden="true" className="size-icon" />
               Settings
             </Link>
-            <form action={signOut}>
-              <button type="submit" className={item}>
-                <LogOut aria-hidden="true" className="size-icon" />
-                Sign out
-              </button>
-            </form>
+            <button
+              type="button"
+              onClick={async () => {
+                setOpen(false);
+                try {
+                  // Invalidate local client state
+                  await supabaseBrowser().auth.signOut({ scope: "local" });
+                } catch {
+                  // Proceed to authoritative server signout regardless
+                }
+                // Submit POST to dedicated signout route for server and cookie destruction
+                const form = document.createElement("form");
+                form.method = "POST";
+                form.action = "/auth/signout";
+                document.body.appendChild(form);
+                form.submit();
+              }}
+              className={item}
+            >
+              <LogOut aria-hidden="true" className="size-icon" />
+              Sign out
+            </button>
           </div>
         </div>
       ) : null}

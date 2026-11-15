@@ -46,16 +46,26 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  const { data } = await supabase.auth.getClaims();
-  const signedIn = Boolean(data?.claims?.sub);
+  const { data } = await supabase.auth.getUser();
+  const signedIn = Boolean(data?.user?.id);
 
   if (!signedIn && !OPEN_ADMIN_PAGES.test(path)) {
     const login = sameSiteUrl(request, "/admin/login");
     login.searchParams.set("next", path + request.nextUrl.search);
     const redirect = NextResponse.redirect(login);
+    redirect.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    redirect.headers.set("Pragma", "no-cache");
     for (const cookie of response.cookies.getAll()) redirect.cookies.set(cookie);
     return redirect;
   }
+
+  // Ensure all responses under /admin carry strict no-store headers to prevent bfcache leaks
+  if (path.startsWith("/admin")) {
+    response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0");
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+  }
+
   return response;
 }
 
