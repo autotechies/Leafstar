@@ -1,6 +1,6 @@
+import Script from "next/script";
 import type { Metadata, Viewport } from "next";
 import { manrope, playfair } from "@/lib/fonts";
-import { themeInitScript } from "@/lib/theme";
 import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
@@ -23,10 +23,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    // data-theme is set before paint by the inline script; the server cannot know it in a static build.
+    // Load the theme initializer before hydration without embedding executable HTML in this component.
     <html lang="en" data-theme="light" suppressHydrationWarning className={`${manrope.variable} ${playfair.variable}`}>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <Script src="/theme-init.js" strategy="beforeInteractive" />
       </head>
       <body>
         <ToastProvider>{children}</ToastProvider>
